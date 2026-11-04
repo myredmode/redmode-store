@@ -460,13 +460,23 @@ const StoreContent: React.FC = () => {
     selectedProductId,
   ]);
 
-  // Direct URL on first load: sync path to activeView if user arrived directly at /kurti, /login, /contact, etc.
+  // Stable ref to latest syncPathToState so effects don't re-run and overwrite view state on internal updates
+  const syncPathToStateRef = useRef(syncPathToState);
+  useEffect(() => {
+    syncPathToStateRef.current = syncPathToState;
+  }, [syncPathToState]);
+
+  // Direct URL on first load: sync path to activeView ONLY once on mount if user arrived directly at /kurti, /login, /product/..., etc.
+  const hasInitializedPathRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (hasInitializedPathRef.current) return;
+    hasInitializedPathRef.current = true;
+
     const initialPath = window.location.pathname;
     if (initialPath && initialPath !== '/') {
       isPopStateNavigation.current = true;
-      syncPathToState(initialPath);
+      syncPathToStateRef.current(initialPath);
     } else {
       // Visiting redmode.in or / MUST always open customer homepage, never admin
       setActiveView('home');
@@ -474,7 +484,7 @@ const StoreContent: React.FC = () => {
       setSelectedCategorySlug(null);
       setSelectedSubcategorySlug(null);
     }
-  }, [syncPathToState, setActiveView, setSelectedProductId, setSelectedCategorySlug, setSelectedSubcategorySlug]);
+  }, [setActiveView, setSelectedProductId, setSelectedCategorySlug, setSelectedSubcategorySlug]);
 
   // Browser Back / Forward popstate event listener: triggers when user uses browser back or forward buttons
   useEffect(() => {
@@ -482,14 +492,14 @@ const StoreContent: React.FC = () => {
 
     const handlePopState = () => {
       isPopStateNavigation.current = true;
-      syncPathToState(window.location.pathname);
+      syncPathToStateRef.current(window.location.pathname);
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [syncPathToState]);
+  }, []);
 
   // Sync in-app clicks & state changes to browser URL bar via pushState
   useEffect(() => {
