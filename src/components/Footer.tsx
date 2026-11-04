@@ -337,6 +337,17 @@ export const Footer: React.FC = () => {
             >
               Cancellation Policy
             </button>
+            <span className="text-zinc-300 select-none">|</span>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView('admin');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="hover:text-rose-600 transition-colors duration-150 cursor-pointer text-zinc-400"
+            >
+              Admin Portal
+            </button>
           </div>
         </div>
       </div>

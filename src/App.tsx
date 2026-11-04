@@ -336,7 +336,16 @@ const StoreContent: React.FC = () => {
         return;
       }
 
-      if (first === 'admin' || first === 'admin-panel' || first === 'dashboard' || first === 'admin-login') {
+      if (
+        first === 'admin' ||
+        first === 'admin-panel' ||
+        first === 'adminpanel' ||
+        first === 'admin_panel' ||
+        first === 'admin panel' ||
+        first === 'dashboard' ||
+        first === 'admin-login' ||
+        first === 'adminlogin'
+      ) {
         setIsLoginOpen(false);
         setActiveView('admin');
         return;
@@ -542,24 +551,12 @@ const StoreContent: React.FC = () => {
   }, [setActiveView]);
 
   if (activeView === 'admin') {
-    if (typeof window !== 'undefined' && !window.location.pathname.toLowerCase().startsWith('/admin')) {
-      handleForceRedirectToHome();
-      return null;
-    }
-
-    // Allow explicit admin login portal if specifically navigated to ?login=true or /admin/login or /admin-login
-    const isExplicitLoginReq =
-      typeof window !== 'undefined' &&
-      (window.location.search.includes('login=true') ||
-        window.location.pathname.toLowerCase() === '/admin/login' ||
-        window.location.pathname.toLowerCase() === '/admin-login');
-
-    if (isExplicitLoginReq && !isAdminAuthenticated) {
+    // If not authenticated, always show the secure Admin Login Gate
+    if (!isAdminAuthenticated) {
       return <AdminLoginGate />;
     }
 
-    // Strictly verify role in Firestore before rendering AdminPanel.
-    // If not logged in as 'admin', force an immediate redirect to the storefront homepage.
+    // Once logged in, strictly verify role in Firestore before rendering AdminPanel
     return <AdminFirestoreGuard onUnauthorizedRedirect={handleForceRedirectToHome} />;
   }
 
