@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, ColorVariant, Category, SizeChartEntry } from '../../types';
 import { useStore } from '../../context/StoreContext';
+import { uploadImageFile } from '../../utils/imageUpload';
 import {
   X,
   Plus,
@@ -974,13 +975,31 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
               <div className="space-y-1.5 md:col-span-2">
-                <label className="font-semibold text-slate-700">Cover Image URL *</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-700">Cover Image URL *</label>
+                  <label className="text-[11px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition">
+                    <Upload className="w-3 h-3" />
+                    <span>Upload Device Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const url = await uploadImageFile(file);
+                          if (url) setMainImage(url);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <input
                   type="url"
                   required
                   value={mainImage}
                   onChange={(e) => setMainImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
+                  placeholder="https://images.unsplash.com/... or uploaded photo data"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-black focus:ring-1 focus:ring-black outline-none transition text-slate-900 text-xs font-medium"
                 />
                 <p className="text-[10px] text-slate-400">
@@ -1119,14 +1138,32 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5 md:col-span-3">
-                    <label className="font-semibold text-slate-700">
-                      Variant Primary Photo URL (Shows when this color is clicked) *
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700">
+                        Variant Primary Photo URL (Shows when this color is clicked) *
+                      </label>
+                      <label className="text-[11px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition">
+                        <Upload className="w-3 h-3" />
+                        <span>Upload Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = await uploadImageFile(file);
+                              if (url) updateActiveVariantField('image', url);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
                     <input
                       type="url"
                       value={colorOptions[activeVariantTab].image || ''}
                       onChange={(e) => updateActiveVariantField('image', e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
+                      placeholder="https://images.unsplash.com/... or uploaded photo data"
                       className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-black"
                     />
                   </div>

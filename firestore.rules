@@ -15,6 +15,11 @@ service cloud.firestore {
       allow write: if isValidId(adminId);
     }
 
+    match /products/{productId} {
+      allow read: if isValidId(productId);
+      allow write: if isValidId(productId);
+    }
+
     match /{document=**} {
       allow read, write: if isAuthenticated();
     }

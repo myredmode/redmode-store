@@ -41,6 +41,24 @@ import {
 } from '../data/initialData';
 import { calculateOrderParcel, sanitizeOrderForCustomer } from '../utils/packaging';
 import { logAdminActivity } from '../utils/activityLogger';
+import { idbGet, idbSet } from '../utils/indexedDb';
+import { db } from '../firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+
+function cleanForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) return obj.map(cleanForFirestore);
+  if (typeof obj === 'object') {
+    const res: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== undefined) {
+        res[k] = cleanForFirestore(v);
+      }
+    }
+    return res;
+  }
+  return obj;
+}
 
 export type ActiveView =
   | 'home'
@@ -1041,6 +1059,64 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeView, selectedCategorySlug, selectedSubcategorySlug]);
 
+  // Safe Normalization Helper to merge stored products with INITIAL_PRODUCTS
+  const normalizeProductsWithInitial = (rawList: Partial<Product>[]): Product[] => {
+    if (!Array.isArray(rawList) || rawList.length === 0) return INITIAL_PRODUCTS;
+
+    const processedProducts: Product[] = rawList.map((p: Partial<Product>) => {
+      const initialMatch = INITIAL_PRODUCTS.find((ip) => ip.id === p.id);
+      const userImages =
+        Array.isArray(p.images) && p.images.length > 0
+          ? p.images
+          : p.mainImage
+          ? [p.mainImage]
+          : initialMatch?.images || [];
+      const userMainImage = p.mainImage || userImages[0] || initialMatch?.mainImage || '';
+
+      return {
+        ...initialMatch,
+        ...p,
+        mainImage: userMainImage,
+        images: userImages,
+        sizes:
+          Array.isArray(p.sizes) && p.sizes.length > 0
+            ? p.sizes
+            : initialMatch?.sizes || ['S', 'M', 'L', 'XL'],
+        stockBySize: p.stockBySize || initialMatch?.stockBySize || {},
+        seo: p.seo || initialMatch?.seo || { metaTitle: p.name || '', metaDescription: '', imageAlt: p.name || '' },
+        highlights: p.highlights || initialMatch?.highlights,
+        reviews: p.reviews || initialMatch?.reviews,
+        rating: p.rating || initialMatch?.rating || 4.8,
+        reviewCount: p.reviewCount || initialMatch?.reviewCount || 100,
+        brand: p.brand || initialMatch?.brand || 'REDMODE',
+        material: p.material || initialMatch?.material,
+        fit: p.fit || initialMatch?.fit,
+        pattern: p.pattern || initialMatch?.pattern,
+        color: p.color || initialMatch?.color,
+        colorOptions: (() => {
+          // If user has saved colorOptions, strictly preserve them! Never revert to initialMatch!
+          if (Array.isArray(p.colorOptions) && p.colorOptions.length > 0) {
+            return p.colorOptions;
+          }
+          return initialMatch?.colorOptions || [];
+        })(),
+        occasion: p.occasion || initialMatch?.occasion,
+        countryOfOrigin: p.countryOfOrigin || initialMatch?.countryOfOrigin || 'India',
+        sku: p.sku || initialMatch?.sku,
+      } as Product;
+    });
+
+    // Ensure any newly added products from INITIAL_PRODUCTS (e.g. Jewellery, Kurti Sets) are present
+    const existingIds = new Set(processedProducts.map((p) => p.id));
+    for (const initProd of INITIAL_PRODUCTS) {
+      if (!existingIds.has(initProd.id)) {
+        processedProducts.push(initProd);
+      }
+    }
+
+    return processedProducts;
+  };
+
   // Persistent State with Fallback & Safe Normalization
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -1048,50 +1124,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const processedProducts: Product[] = parsed.map((p: Partial<Product>) => {
-            const initialMatch = INITIAL_PRODUCTS.find((ip) => ip.id === p.id);
-            const userImages = Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.mainImage ? [p.mainImage] : (initialMatch?.images || []));
-            const userMainImage = p.mainImage || userImages[0] || initialMatch?.mainImage || '';
-
-            return {
-              ...initialMatch,
-              ...p,
-              mainImage: userMainImage,
-              images: userImages,
-              sizes: Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : (initialMatch?.sizes || ['S', 'M', 'L', 'XL']),
-              stockBySize: p.stockBySize || initialMatch?.stockBySize || {},
-              seo: p.seo || initialMatch?.seo || { metaTitle: p.name || '', metaDescription: '', imageAlt: p.name || '' },
-              highlights: p.highlights || initialMatch?.highlights,
-              reviews: p.reviews || initialMatch?.reviews,
-              rating: p.rating || initialMatch?.rating || 4.8,
-              reviewCount: p.reviewCount || initialMatch?.reviewCount || 100,
-              brand: p.brand || initialMatch?.brand || 'REDMODE',
-              material: p.material || initialMatch?.material,
-              fit: p.fit || initialMatch?.fit,
-              pattern: p.pattern || initialMatch?.pattern,
-              color: p.color || initialMatch?.color,
-              colorOptions: (() => {
-                // If user has saved colorOptions, strictly preserve them! Never revert to initialMatch!
-                if (Array.isArray(p.colorOptions) && p.colorOptions.length > 0) {
-                  return p.colorOptions;
-                }
-                return initialMatch?.colorOptions || [];
-              })(),
-              occasion: p.occasion || initialMatch?.occasion,
-              countryOfOrigin: p.countryOfOrigin || initialMatch?.countryOfOrigin || 'India',
-              sku: p.sku || initialMatch?.sku,
-            } as Product;
-          });
-
-          // Ensure any newly added products from INITIAL_PRODUCTS (e.g. Jewellery, Kurti Sets) are present
-          const existingIds = new Set(processedProducts.map((p) => p.id));
-          for (const initProd of INITIAL_PRODUCTS) {
-            if (!existingIds.has(initProd.id)) {
-              processedProducts.push(initProd);
-            }
-          }
-
-          return processedProducts;
+          return normalizeProductsWithInitial(parsed);
         }
       }
     } catch (e) {
@@ -1386,12 +1419,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Active OTP storage for customer verification
   const [activeCustomerOtps, setActiveCustomerOtps] = useState<Record<string, string>>({});
 
-  // Sync to LocalStorage
+  // 1. Authoritative Hydration from IndexedDB (instant) and Firestore collection 'products' (cloud sync)
   useEffect(() => {
+    let isCancelled = false;
+
+    const loadPersistedProducts = async () => {
+      try {
+        // Fast local load from IndexedDB (no 5MB quota limit, retains all photos & colorways)
+        const idbProducts = await idbGet<Product[]>('redmode_products_v2');
+        if (idbProducts && Array.isArray(idbProducts) && idbProducts.length > 0 && !isCancelled) {
+          const normalized = normalizeProductsWithInitial(idbProducts);
+          setProducts(normalized);
+        }
+
+        // Background sync from Firestore (retains across browsers and devices)
+        try {
+          const snap = await getDocs(collection(db, 'products'));
+          if (!snap.empty && !isCancelled) {
+            const fsProducts: Product[] = [];
+            snap.forEach((d) => {
+              const data = d.data();
+              if (data && data.id) {
+                fsProducts.push(data as Product);
+              }
+            });
+
+            if (fsProducts.length > 0) {
+              setProducts((prev) => {
+                const map = new Map<string, Product>();
+                prev.forEach((p) => map.set(p.id, p));
+                fsProducts.forEach((p) => {
+                  const existing = map.get(p.id);
+                  map.set(p.id, existing ? { ...existing, ...p } : p);
+                });
+                const merged = normalizeProductsWithInitial(Array.from(map.values()));
+                idbSet('redmode_products_v2', merged).catch(() => {});
+                return merged;
+              });
+            }
+          }
+        } catch (fsErr) {
+          console.debug('Firestore products sync skipped/offline:', fsErr);
+        }
+      } catch (err) {
+        console.warn('Failed to load persisted products:', err);
+      }
+    };
+
+    loadPersistedProducts();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Sync to IndexedDB and LocalStorage
+  useEffect(() => {
+    idbSet('redmode_products_v2', products).catch((err) => {
+      console.warn('Failed saving products to IndexedDB:', err);
+    });
     try {
       localStorage.setItem('redmode_products', JSON.stringify(products));
     } catch (err) {
-      console.warn('Storage quota error writing products to localStorage:', err);
+      // Ignored: IndexedDB and Firestore retain complete products without quota limits
     }
   }, [products]);
 
@@ -2063,6 +2153,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setProducts((prev) => {
       const next = [newProduct, ...prev];
+      idbSet('redmode_products_v2', next).catch(() => {});
       try {
         localStorage.setItem('redmode_products', JSON.stringify(next));
       } catch (e) {
@@ -2070,6 +2161,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    // Cloud Firestore Sync for permanent cross-device persistence
+    try {
+      setDoc(doc(db, 'products', newProduct.id), cleanForFirestore(newProduct)).catch((err) => {
+        console.debug('Firestore product create sync skipped/offline:', err);
+      });
+    } catch {}
+
     logAdminActivity({
       adminId: currentAdminUser.id,
       adminName: currentAdminUser.name,
@@ -2082,8 +2181,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateProduct = (id: string, updatedFields: Partial<Product>) => {
     const targetProduct = products.find((p) => p.id === id);
+    const updatedProd = { ...(targetProduct || {}), ...updatedFields, id } as Product;
+
     setProducts((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, ...updatedFields } : p));
+      const next = prev.map((p) => (p.id === id ? updatedProd : p));
+      idbSet('redmode_products_v2', next).catch(() => {});
       try {
         localStorage.setItem('redmode_products', JSON.stringify(next));
       } catch (e) {
@@ -2091,6 +2193,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return next;
     });
+
+    // Cloud Firestore Sync for permanent cross-device persistence
+    try {
+      setDoc(doc(db, 'products', id), cleanForFirestore(updatedProd)).catch((err) => {
+        console.debug('Firestore product update sync skipped/offline:', err);
+      });
+    } catch {}
+
     if (targetProduct) {
       logAdminActivity({
         adminId: currentAdminUser.id,
@@ -2108,7 +2218,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Unauthorized: Product deletion is restricted to Super Admin only.');
       return;
     }
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      idbSet('redmode_products_v2', next).catch(() => {});
+      try {
+        localStorage.setItem('redmode_products', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    try {
+      deleteDoc(doc(db, 'products', id)).catch(() => {});
+    } catch {}
+
     addAuditLog(`Deleted product ID: ${id}`, 'Product', id);
   };
 
@@ -2658,6 +2780,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setProducts((prev) => {
       const updated = prev.map((p) => (p.id === productId ? { ...p, stockBySize: currentStockBySize, stock: total } : p));
+      idbSet('redmode_products_v2', updated).catch(() => {});
       try {
         localStorage.setItem('redmode_products', JSON.stringify(updated));
       } catch (e) {}

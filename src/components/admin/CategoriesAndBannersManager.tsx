@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { Category, Subcategory, HeroBanner, MenuHighlightItem } from '../../types';
+import { compressImage } from '../../utils/imageUpload';
 
 interface CategoriesAndBannersManagerProps {
   onSaveNotification?: (msg: string) => void;
@@ -153,27 +154,23 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
   };
 
   // -------------------------------------------------------------
-  // HELPER: FILE TO BASE64 DATA URL
+  // HELPER: FILE TO COMPRESSED BASE64 DATA URL
   // -------------------------------------------------------------
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      showStatus('Image size must be under 5MB for optimal store speed.', 'error');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setter(dataUrl);
-        showStatus('Photo uploaded successfully! Preview updated.', 'success');
+    try {
+      const compressed = await compressImage(file, 1200, 800, 0.75);
+      if (compressed) {
+        setter(compressed);
+        showStatus('Photo compressed and loaded! Preview updated.', 'success');
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch {
+      showStatus('Failed to process image file.', 'error');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   // -------------------------------------------------------------

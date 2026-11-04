@@ -13,12 +13,27 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "name", "email", "role", "status"]
+    },
+    "Product": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "mainImage": { "type": "string" }
+      },
+      "required": ["id", "name", "price"]
     }
   },
   "firestore": {
     "/admins/{adminId}": {
       "schema": "AdminUser",
       "description": "Registered administrators and staff members"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Catalog products and updated listings"
     }
   }
 }
