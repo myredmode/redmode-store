@@ -615,9 +615,9 @@ const StoreContent: React.FC = () => {
       {/* Header with Logo, Navigation & Catalogue Dropdown */}
       <Header />
 
-      {/* Main View Router with Option 1: Micro Dissolve (200ms) */}
+      {/* Main View Router with Instant Micro Dissolve */}
       <main className="flex-1 flex flex-col w-full relative">
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="sync" initial={false}>
           <motion.div
             key={viewKey}
             variants={shouldReduceMotion ? undefined : microDissolveVariants}

@@ -857,15 +857,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
       )}
 
     {/* ========================================================= */}
-    {/* 3. MOBILE BOTTOM NAVIGATION BAR (FIXED EVERYWHERE)        */}
+    {/* 3. MOBILE BOTTOM NAVIGATION BAR (FIXED EVERYWHERE EXCEPT PDP) */}
+    {/* Hidden on Product Detail Page so BUY NOW & ADD TO CART bar is 100% visible */}
     {/* Icons only (No text labels) in exact requested order:    */}
     {/* 1. Home | 2. Search | 3. Menu | 4. Account | 5. Track | 6. Bag */}
     {/* ========================================================= */}
-    <nav
-      aria-label="Mobile Navigation"
-      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-zinc-200/80 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] px-1.5 flex items-center justify-around shadow-[0_-2px_12px_rgba(0,0,0,0.04)] select-none font-sans"
-    >
+    {!isProductDetailPage && (
+      <nav
+        aria-label="Mobile Navigation"
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-zinc-200/80 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] px-1.5 flex items-center justify-around shadow-[0_-2px_12px_rgba(0,0,0,0.04)] select-none font-sans"
+      >
       {/* 1. HOME ICON */}
       <button
         type="button"
@@ -974,6 +976,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
         </div>
       </button>
     </nav>
+    )}
   </>
   );
 };

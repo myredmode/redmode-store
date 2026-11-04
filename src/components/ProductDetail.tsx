@@ -502,7 +502,7 @@ export const ProductDetail: React.FC = () => {
   const loyaltyPoints = Math.round(effectivePrice * 0.04);
 
   return (
-    <div id="redmode-product-detail-page" className="bg-white text-zinc-900 pb-20 sm:pb-6 font-sans relative">
+    <div id="redmode-product-detail-page" className="bg-white text-zinc-900 pb-28 sm:pb-8 font-sans relative">
       {/* ========================================================================= */}
       {/* FIXED TRANSPARENT ICONS STRIPE OVER PRODUCT PHOTO                         */}
       {/* Left: < (Back) | Right: Search, Save (Wishlist), Add to Cart              */}
@@ -1211,7 +1211,7 @@ export const ProductDetail: React.FC = () => {
       />
 
       {/* Mobile Sticky Bottom Action Bar (Fixed like Rare Rabbit) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200 px-3 py-2.5 grid grid-cols-2 gap-2.5 shadow-lg">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-zinc-200 px-3 py-2.5 grid grid-cols-2 gap-2.5 shadow-lg">
         <button
           type="button"
           onClick={handleBuyNow}

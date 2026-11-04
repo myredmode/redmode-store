@@ -192,7 +192,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // Card click: opens product detail
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    incrementProductViews(product.id);
+    e.stopPropagation();
     if (openProductDetail) {
       openProductDetail(product.id, effectiveColor || undefined);
     } else {
@@ -200,6 +200,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       setActiveView('product-detail');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
+    // Increment product views quietly in background
+    setTimeout(() => {
+      try {
+        incrementProductViews(product.id);
+      } catch (err) {}
+    }, 100);
   };
 
   const handleWishlistClick = (e: React.MouseEvent) => {
