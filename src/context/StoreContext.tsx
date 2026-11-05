@@ -249,6 +249,7 @@ interface StoreContextType {
   addCategory: (nameOrCategory: string | Partial<Category>, categoryData?: Partial<Category>) => void;
   updateCategory: (categoryOrId: Category | string, partialData?: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
+  reorderCategories: (newOrderedCategories: Category[]) => void;
   addSubcategory: (categoryId: string, subcategory: Omit<Subcategory, 'id'> | Subcategory) => void;
   deleteSubcategory: (categoryId: string, subcategoryId: string) => void;
 
@@ -1160,44 +1161,64 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               subcategories: Array.isArray(c.subcategories) ? c.subcategories : [],
             })) as Category[];
 
-          // Ensure Kurti category contains the 3 exact subcategories: Printed, Embroidered, Solids with distinct testing images
+          // Ensure Kurti category has subcategories if missing, but NEVER overwrite user-saved images
           const kurtiCat = loadedCategories.find(
             (c) => c.slug === 'kurti' || c.name.toLowerCase() === 'kurti'
           );
           if (kurtiCat) {
-            kurtiCat.subcategories = INITIAL_CATEGORIES[0].subcategories;
-            kurtiCat.bannerUrl = INITIAL_CATEGORIES[0].bannerUrl;
-            kurtiCat.imageUrl = INITIAL_CATEGORIES[0].imageUrl;
+            if (!kurtiCat.subcategories || kurtiCat.subcategories.length === 0) {
+              kurtiCat.subcategories = INITIAL_CATEGORIES[0].subcategories;
+            }
+            if (!kurtiCat.imageUrl) {
+              kurtiCat.imageUrl = INITIAL_CATEGORIES[0].imageUrl;
+            }
+            if (!kurtiCat.bannerUrl) {
+              kurtiCat.bannerUrl = kurtiCat.imageUrl || INITIAL_CATEGORIES[0].bannerUrl;
+            }
           }
 
-          // Ensure Trouser category contains the 2 subcategories: Straight Fit, Regular Fit with distinct testing images
+          // Ensure Trouser category has subcategories if missing, but NEVER overwrite user-saved images
           const trouserCat = loadedCategories.find(
             (c) => c.slug === 'trouser' || c.slug === 'bottom' || c.name.toLowerCase() === 'trouser'
           );
           if (trouserCat) {
-            trouserCat.subcategories = INITIAL_CATEGORIES[1].subcategories;
-            trouserCat.bannerUrl = INITIAL_CATEGORIES[1].bannerUrl;
-            trouserCat.imageUrl = INITIAL_CATEGORIES[1].imageUrl;
+            if (!trouserCat.subcategories || trouserCat.subcategories.length === 0) {
+              trouserCat.subcategories = INITIAL_CATEGORIES[1].subcategories;
+            }
+            if (!trouserCat.imageUrl) {
+              trouserCat.imageUrl = INITIAL_CATEGORIES[1].imageUrl;
+            }
+            if (!trouserCat.bannerUrl) {
+              trouserCat.bannerUrl = trouserCat.imageUrl || INITIAL_CATEGORIES[1].bannerUrl;
+            }
           }
 
-          // Ensure Kurti Sets category has no subcategories (direct product navigation)
+          // Ensure Kurti Sets category
           const kurtiSetCat = loadedCategories.find(
             (c) => c.slug === 'kurti-set' || c.name.toLowerCase().includes('kurti set')
           );
           if (kurtiSetCat) {
-            kurtiSetCat.subcategories = [];
-            kurtiSetCat.bannerUrl = INITIAL_CATEGORIES[2].bannerUrl;
-            kurtiSetCat.imageUrl = INITIAL_CATEGORIES[2].imageUrl;
+            if (!kurtiSetCat.subcategories) kurtiSetCat.subcategories = [];
+            if (!kurtiSetCat.imageUrl) {
+              kurtiSetCat.imageUrl = INITIAL_CATEGORIES[2].imageUrl;
+            }
+            if (!kurtiSetCat.bannerUrl) {
+              kurtiSetCat.bannerUrl = kurtiSetCat.imageUrl || INITIAL_CATEGORIES[2].bannerUrl;
+            }
           }
 
-          // Ensure Jewellery category has no subcategories (direct product navigation)
+          // Ensure Jewellery category
           const jewelleryCat = loadedCategories.find(
             (c) => c.slug === 'jewellery' || c.slug === 'jewelry' || c.name.toLowerCase().includes('jewel')
           );
           if (jewelleryCat) {
-            jewelleryCat.subcategories = [];
-            jewelleryCat.bannerUrl = INITIAL_CATEGORIES[3].bannerUrl;
-            jewelleryCat.imageUrl = INITIAL_CATEGORIES[3].imageUrl;
+            if (!jewelleryCat.subcategories) jewelleryCat.subcategories = [];
+            if (!jewelleryCat.imageUrl) {
+              jewelleryCat.imageUrl = INITIAL_CATEGORIES[3].imageUrl;
+            }
+            if (!jewelleryCat.bannerUrl) {
+              jewelleryCat.bannerUrl = jewelleryCat.imageUrl || INITIAL_CATEGORIES[3].bannerUrl;
+            }
           }
 
           // Ensure other essential categories exist in loaded list
@@ -1207,6 +1228,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               loadedCategories.push(initCat);
             }
           }
+
+          // Maintain order sequence
+          loadedCategories.sort((a, b) => (a.order || 0) - (b.order || 0));
 
           return loadedCategories;
         }
@@ -1487,7 +1511,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('redmode_categories', JSON.stringify(categories));
+    try {
+      localStorage.setItem('redmode_categories', JSON.stringify(categories));
+    } catch (err) {
+      console.warn('localStorage save warning for categories, backed by IndexedDB:', err);
+    }
+    idbSet('redmode_categories_v2', categories).catch((err) => {
+      console.warn('Failed saving categories to IndexedDB:', err);
+    });
   }, [categories]);
 
   useEffect(() => {
@@ -2320,6 +2351,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteCategory = (id: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const reorderCategories = (newOrderedCategories: Category[]) => {
+    const updated = newOrderedCategories.map((cat, idx) => ({
+      ...cat,
+      order: idx + 1,
+    }));
+    setCategories(updated);
+    try {
+      localStorage.setItem('redmode_categories', JSON.stringify(updated));
+    } catch (err) {
+      console.warn('localStorage save warning on reorder:', err);
+    }
+    idbSet('redmode_categories_v2', updated).catch(() => {});
   };
 
   const addSubcategory = (categoryId: string, subcategory: Omit<Subcategory, 'id'> | Subcategory) => {
@@ -4348,6 +4393,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addCategory,
         updateCategory,
         deleteCategory,
+        reorderCategories,
         addSubcategory,
         deleteSubcategory,
         addBanner,

@@ -747,7 +747,9 @@ export const Catalogue: React.FC = () => {
                     </span>
                   </button>
 
-                  {categories.map((cat) => {
+                  {[...categories]
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map((cat) => {
                     const isSelected = selectedCategorySlug === cat.slug;
                     return (
                       <div key={cat.id}>

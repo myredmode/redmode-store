@@ -41,6 +41,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     addCategory,
     updateCategory,
     deleteCategory,
+    reorderCategories,
     addSubcategory,
     deleteSubcategory,
     banners,
@@ -202,11 +203,12 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
       setIsCreatingCategory(false);
       showStatus(`Category "${cleanName}" created successfully! ✅`);
     } else if (editingCategory) {
+      const updatedImg = catImageInput.trim();
       updateCategory(editingCategory.id, {
         name: cleanName,
         slug: cleanSlug,
-        imageUrl: catImageInput.trim(),
-        bannerUrl: catBannerInput.trim(),
+        imageUrl: updatedImg,
+        bannerUrl: updatedImg || catBannerInput.trim(),
         tagline: catTaglineInput.trim(),
         showOnHome: catShowOnHome,
       });
@@ -223,20 +225,21 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     });
   };
 
+  // Consistently sorted categories list by order index
+  const sortedCategories = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+
   // Reorder Category Up/Down
   const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= categories.length) return;
+    if (targetIdx < 0 || targetIdx >= sortedCategories.length) return;
 
-    const reordered = [...categories];
+    const reordered = [...sortedCategories];
     const temp = reordered[index];
     reordered[index] = reordered[targetIdx];
     reordered[targetIdx] = temp;
 
-    // Update order indices
-    reordered.forEach((cat, idx) => {
-      updateCategory(cat.id, { order: idx + 1 });
-    });
+    // Persist new sequence atomically across state, localStorage, and IndexedDB
+    reorderCategories(reordered);
     showStatus('Category sequence updated! ✅');
   };
 
@@ -643,7 +646,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
       {activeTab === 'categories' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-5">
-            {categories.map((cat, catIdx) => (
+            {sortedCategories.map((cat, catIdx) => (
               <div
                 key={cat.id}
                 className="bg-white rounded-xl border border-zinc-200/90 p-5 sm:p-6 shadow-2xs space-y-5 hover:border-zinc-300 transition duration-150"
@@ -724,7 +727,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                       <button
                         type="button"
                         onClick={() => handleMoveCategory(catIdx, 'down')}
-                        disabled={catIdx === categories.length - 1}
+                        disabled={catIdx === sortedCategories.length - 1}
                         className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-white rounded-md disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition cursor-pointer"
                         title="Move Down"
                       >

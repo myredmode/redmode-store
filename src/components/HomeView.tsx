@@ -75,8 +75,8 @@ export const HomeView: React.FC = () => {
       {/* High-Resolution Luxury Fashion Photo (Preserves Full Portrait Model) */}
       <img
         src={
-          cat.bannerUrl ||
           cat.imageUrl ||
+          cat.bannerUrl ||
           'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85'
         }
         alt={cat.name}
@@ -92,11 +92,11 @@ export const HomeView: React.FC = () => {
         {/* Optional Starting Price / Subtitle Tagline */}
         <span className="text-[10px] lg:text-[11px] font-semibold tracking-[0.2em] text-zinc-300 uppercase drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5">
           {cat.tagline ||
-            (idx === 0
+            (cat.slug === 'kurti'
               ? `STARTING AT ${formatPrice(749)}`
-              : idx === 1
+              : cat.slug === 'trouser' || cat.slug === 'bottom'
               ? `STARTING AT ${formatPrice(899)}`
-              : idx === 2
+              : cat.slug === 'kurti-set'
               ? `STARTING AT ${formatPrice(1299)}`
               : `STARTING AT ${formatPrice(499)}`)}
         </span>
@@ -129,8 +129,8 @@ export const HomeView: React.FC = () => {
             {/* High-Resolution Luxury Fashion Photo */}
             <img
               src={
-                cat.bannerUrl ||
                 cat.imageUrl ||
+                cat.bannerUrl ||
                 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85'
               }
               alt={cat.name}
@@ -146,11 +146,11 @@ export const HomeView: React.FC = () => {
               {/* Top Tagline / Starting Price */}
               <span className="text-[10px] font-semibold tracking-[0.24em] text-zinc-300 uppercase drop-shadow-md">
                 {cat.tagline ||
-                  (idx === 0
+                  (cat.slug === 'kurti'
                     ? `STARTING AT JUST ${formatPrice(749)}`
-                    : idx === 1
+                    : cat.slug === 'trouser' || cat.slug === 'bottom'
                     ? `STARTING AT JUST ${formatPrice(899)}`
-                    : idx === 2
+                    : cat.slug === 'kurti-set'
                     ? `STARTING AT JUST ${formatPrice(1299)}`
                     : `STARTING AT JUST ${formatPrice(499)}`)}
               </span>
