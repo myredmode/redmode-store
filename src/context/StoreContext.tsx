@@ -4125,7 +4125,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const isSuperPhoneMatch =
       cleanDigits.length >= 10 &&
       (superCleanMobile.slice(-10) === cleanDigits.slice(-10) ||
-        cleanDigits.slice(-10) === '7505716350' ||
         cleanDigits.slice(-10) === '7302797464');
 
     const isSuperUserMatch =
