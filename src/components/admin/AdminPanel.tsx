@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Product, Order, AdminUser } from '../../types';
+import { Product, Order, AdminUser, StoreSettings } from '../../types';
 import { AddProductPage } from './AddProductPage';
 import { InventoryView } from './InventoryView';
 import { OrderPrintModal } from './OrderPrintModal';
@@ -81,6 +81,8 @@ import { getOrderBatchStatus, getMetaWhatsAppTemplates } from '../../utils/order
 import { AdminLoginGate } from './AdminLoginGate';
 import { AccessDeniedNotice } from './AccessDeniedNotice';
 import { hasPermission, isTabAllowed, getDefaultTabForRole, getRoleBadgeInfo } from '../../utils/rbac';
+import { recordFirestoreAuditLog, AuditLogPayload } from '../../utils/auditLogger';
+export { recordFirestoreAuditLog as logAdminSecurityAction } from '../../utils/auditLogger';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -127,6 +129,7 @@ export const AdminPanel: React.FC = () => {
     toggleAdminUserStatus,
     deleteAdminUser,
     adminLogout,
+    addAuditLog,
   } = useStore();
 
   // Navigation State
@@ -158,6 +161,64 @@ export const AdminPanel: React.FC = () => {
   const activeFestivalAlerts = useMemo(() => {
     return allFestivalAlerts.filter((a) => a.isAlertActive);
   }, [allFestivalAlerts]);
+
+  /**
+   * Helper function in AdminPanel to log critical admin actions (product updates,
+   * user status changes, or settings modifications) directly to Firestore 'AuditLog'
+   * collection for security tracking.
+   */
+  const logCriticalAdminAction = useCallback(
+    async (
+      action: string,
+      entity: 'Product' | 'User' | 'Settings' | 'Order' | 'Inventory' | 'Shipment' | 'Coupon' | 'Customer' | 'Security',
+      entityId: string,
+      details?: {
+        oldValue?: string;
+        newValue?: string;
+        metadata?: Record<string, any>;
+      }
+    ) => {
+      try {
+        await recordFirestoreAuditLog(action, entity, entityId, {
+          adminId: currentAdminUser.id,
+          adminName: currentAdminUser.name,
+          role: currentAdminUser.role,
+          oldValue: details?.oldValue,
+          newValue: details?.newValue,
+          metadata: details?.metadata,
+        });
+      } catch (e) {
+        console.debug('Firestore AuditLog recording skipped/offline:', e);
+      }
+      addAuditLog(
+        action,
+        entity === 'User' ? 'Settings' : entity,
+        entityId,
+        details?.oldValue,
+        details?.newValue
+      );
+    },
+    [currentAdminUser, addAuditLog]
+  );
+
+  const handleUpdateSettingsWithAudit = useCallback(
+    (newSettings: StoreSettings) => {
+      updateSettings(newSettings);
+      logCriticalAdminAction(
+        `Modified store settings & configuration (${newSettings.storeName || 'REDMODE'})`,
+        'Settings',
+        'store_settings',
+        {
+          metadata: {
+            storeName: newSettings.storeName,
+            supportEmail: newSettings.supportEmail,
+            whatsappNumber: newSettings.whatsappNumber,
+          },
+        }
+      );
+    },
+    [updateSettings, logCriticalAdminAction]
+  );
 
   // Enforce role-based tab access
   useEffect(() => {
@@ -289,9 +350,31 @@ export const AdminPanel: React.FC = () => {
   }, [isAddAdminModalOpen]);
 
   const handleToggleAdminStatus = (id: string) => {
+    const target = adminUsers.find((u) => u.id === id);
+    const oldStatus = target?.status || 'active';
+    const newStatus = oldStatus === 'active' ? 'disabled' : 'active';
+
     toggleAdminUserStatus(id);
     setLocalAdminUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: u.status === 'active' ? 'disabled' : 'active' } : u))
+      prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u))
+    );
+
+    logCriticalAdminAction(
+      `Changed staff user status for '${target?.name || id}' to ${newStatus.toUpperCase()}`,
+      'User',
+      id,
+      {
+        oldValue: `Status: ${oldStatus}`,
+        newValue: `Status: ${newStatus}`,
+        metadata: {
+          userId: id,
+          userName: target?.name,
+          userEmail: target?.email,
+          userRole: target?.role,
+          previousStatus: oldStatus,
+          newStatus,
+        },
+      }
     );
   };
 
@@ -301,6 +384,17 @@ export const AdminPanel: React.FC = () => {
       setLocalAdminUsers((prev) => prev.filter((u) => u.id !== id));
       setAdminMgmtSuccess(`Administrator "${name}" has been removed.`);
       setTimeout(() => setAdminMgmtSuccess(null), 4000);
+
+      logCriticalAdminAction(
+        `Deleted administrator account for '${name}' (ID: ${id})`,
+        'User',
+        id,
+        {
+          oldValue: 'Active Administrator',
+          newValue: 'Deleted Account',
+          metadata: { userId: id, userName: name },
+        }
+      );
     }
   };
 
@@ -643,8 +737,36 @@ export const AdminPanel: React.FC = () => {
   const handleSaveProduct = (productData: any) => {
     if (editingProduct) {
       updateProduct(editingProduct.id, productData);
+      logCriticalAdminAction(
+        `Updated catalog product '${productData.name || editingProduct.name}'`,
+        'Product',
+        editingProduct.id,
+        {
+          oldValue: `Price: ₹${editingProduct.price}, Category: ${editingProduct.category}`,
+          newValue: `Price: ₹${productData.price || editingProduct.price}, Category: ${productData.category || editingProduct.category}`,
+          metadata: {
+            productId: editingProduct.id,
+            name: productData.name || editingProduct.name,
+            price: productData.price || editingProduct.price,
+            category: productData.category || editingProduct.category,
+          },
+        }
+      );
     } else {
       addProduct(productData);
+      logCriticalAdminAction(
+        `Created new catalog product '${productData.name}'`,
+        'Product',
+        productData.id || `prod_${Date.now()}`,
+        {
+          newValue: `Price: ₹${productData.price}, Category: ${productData.category}`,
+          metadata: {
+            name: productData.name,
+            price: productData.price,
+            category: productData.category,
+          },
+        }
+      );
     }
   };
 
@@ -3712,7 +3834,7 @@ export const AdminPanel: React.FC = () => {
               <div className="space-y-8">
                 <AdminSettingsView
                   settings={settings}
-                  updateSettings={updateSettings}
+                  updateSettings={handleUpdateSettingsWithAudit}
                   onSaveNotification={(msg) => setSettingsSaveSuccess(msg)}
                 />
               </div>
@@ -3731,7 +3853,7 @@ export const AdminPanel: React.FC = () => {
               <div className="space-y-8 max-w-5xl">
                 <CustomDomainManager
                   settings={settings}
-                  updateSettings={updateSettings}
+                  updateSettings={handleUpdateSettingsWithAudit}
                   onSaveNotification={(msg) => setSettingsSaveSuccess(msg)}
                 />
               </div>

@@ -7,7 +7,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     match /admins/{adminId} {
@@ -18,6 +18,13 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if isValidId(productId);
       allow write: if isValidId(productId);
+    }
+
+    // Security Audit Log: Append-only immutable collection for critical admin action tracking
+    match /AuditLog/{logId} {
+      allow read: if isValidId(logId);
+      allow create: if isValidId(logId) && request.resource.data.keys().hasAll(['id', 'action', 'entity', 'entityId', 'timestamp']);
+      allow update, delete: if false;
     }
 
     match /{document=**} {

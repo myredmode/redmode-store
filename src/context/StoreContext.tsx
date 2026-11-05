@@ -44,6 +44,7 @@ import { logAdminActivity } from '../utils/activityLogger';
 import { idbGet, idbSet } from '../utils/indexedDb';
 import { db } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { recordFirestoreAuditLog } from '../utils/auditLogger';
 
 function cleanForFirestore(obj: any): any {
   if (obj === null || obj === undefined) return null;
@@ -2210,6 +2211,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         type: 'product_update',
         target: id,
       });
+      addAuditLog(
+        `Updated product '${targetProduct.name}' (Price: ₹${updatedProd.price ?? targetProduct.price})`,
+        'Product',
+        id,
+        `Price: ₹${targetProduct.price}, Category: ${targetProduct.category}`,
+        `Price: ₹${updatedProd.price ?? targetProduct.price}, Category: ${updatedProd.category ?? targetProduct.category}`
+      );
     }
   };
 
@@ -2440,6 +2448,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem('redmode_audit_logs', JSON.stringify(updated));
       } catch (e) {}
       return updated;
+    });
+
+    // Cloud Firestore Sync: Record immutable security audit log
+    recordFirestoreAuditLog(action, entity, entityId, {
+      adminId: currentAdminUser.id,
+      adminName: currentAdminUser.name,
+      role: currentAdminUser.role,
+      oldValue,
+      newValue,
+    }).catch((err) => {
+      console.debug('Firestore AuditLog recording skipped/offline:', err);
     });
   };
 
@@ -4054,6 +4073,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return prev;
       });
     }
+
+    addAuditLog(
+      `Updated store configuration & settings (${newSettings.storeName || 'REDMODE'})`,
+      'Settings',
+      'store_settings'
+    );
   };
 
   const menuHighlights: MenuHighlightItem[] = useMemo(() => {
