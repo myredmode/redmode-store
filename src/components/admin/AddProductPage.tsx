@@ -42,6 +42,7 @@ import {
   isValidHex,
 } from './colorData';
 import { uploadImageFile } from '../../utils/imageUpload';
+import { useUploadedImages } from '../../utils/userUploadedImages';
 
 interface AddProductPageProps {
   initialProduct?: Product | null;
@@ -241,6 +242,7 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
   const [showImageModal, setShowImageModal] = useState(false);
   const [inputImageUrl, setInputImageUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { images: uploadedImages, addImage: saveToLibrary } = useUploadedImages();
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -751,6 +753,7 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
         const persistedUrl = await uploadImageFile(file);
         if (persistedUrl) {
           addImageToActiveColor(persistedUrl);
+          saveToLibrary(persistedUrl, file.name.replace(/\.[^/.]+$/, ''));
         }
       }
       setToastMessage('Photos uploaded and saved permanently!');
@@ -2381,23 +2384,36 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
               </div>
             </div>
 
-            {/* Indian Clothing Sample Presets */}
+            {/* Uploaded Photos Recommendation */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Quick Clothing Presets</label>
-              <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
-                {SAMPLE_CLOTHING_PRESETS.map((sample, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => addImageToActiveColor(sample.url)}
-                    className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-square cursor-pointer hover:border-emerald-500 hover:shadow-xs transition"
-                  >
-                    <img src={sample.url} alt={sample.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1 text-center transition">
-                      <span className="text-[10px] text-white font-semibold leading-tight">{sample.name}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700">
+                  Your Uploaded Photos (Recommended)
+                </label>
+                {uploadedImages.length > 0 && (
+                  <span className="text-[10px] text-slate-400">{uploadedImages.length} saved</span>
+                )}
               </div>
+              {uploadedImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
+                  {uploadedImages.map((sample) => (
+                    <div
+                      key={sample.id}
+                      onClick={() => addImageToActiveColor(sample.url)}
+                      className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-square cursor-pointer hover:border-emerald-500 hover:shadow-xs transition"
+                    >
+                      <img src={sample.url} alt={sample.label} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1 text-center transition">
+                        <span className="text-[10px] text-white font-semibold leading-tight">{sample.label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-xl">
+                  No uploaded photos yet. Any photos you upload will be saved and recommended here.
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-100">

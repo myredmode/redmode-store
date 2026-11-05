@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Image as ImageIcon,
@@ -27,46 +27,11 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { Category, Subcategory, HeroBanner, MenuHighlightItem } from '../../types';
 import { compressImage } from '../../utils/imageUpload';
+import { useUploadedImages } from '../../utils/userUploadedImages';
 
 interface CategoriesAndBannersManagerProps {
   onSaveNotification?: (msg: string) => void;
 }
-
-// Curated high-res Indian fashion presets for quick 1-click selection
-const FASHION_IMAGE_PRESETS = [
-  {
-    label: 'Classic Cotton Kurti',
-    url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'Zari Embroidered Kurti',
-    url: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'A-Line Long Anarkali',
-    url: 'https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'Cigarette Pants & Trouser',
-    url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'Festive Kurti Set Co-ord',
-    url: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'Short Peplum Kurti',
-    url: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1400&q=85',
-  },
-  {
-    label: 'Hero Campaign Runway Banner',
-    url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1800&q=85',
-  },
-  {
-    label: 'Tailored Trouser Chic',
-    url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=1400&q=85',
-  },
-];
 
 export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerProps> = ({
   onSaveNotification,
@@ -89,6 +54,19 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     deleteMenuHighlight,
     products,
   } = useStore();
+
+  const { images: uploadedImages, addImage, removeImage } = useUploadedImages();
+
+  // If no uploaded photos yet in recommendation library, auto-seed from existing products
+  useEffect(() => {
+    if (uploadedImages.length === 0 && products && products.length > 0) {
+      products.slice(0, 15).forEach((p) => {
+        if (p.mainImage) {
+          addImage(p.mainImage, p.name);
+        }
+      });
+    }
+  }, [products, uploadedImages.length, addImage]);
 
   const [activeTab, setActiveTab] = useState<'categories' | 'banners' | 'menu-highlights'>('categories');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -164,7 +142,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
       const compressed = await compressImage(file, 1200, 800, 0.75);
       if (compressed) {
         setter(compressed);
-        showStatus('Photo compressed and loaded! Preview updated.', 'success');
+        addImage(compressed, file.name.replace(/\.[^/.]+$/, ''));
+        showStatus('Photo uploaded and saved to your recommended library!', 'success');
       }
     } catch {
       showStatus('Failed to process image file.', 'error');
@@ -1516,35 +1495,57 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                         )}
                       </div>
 
-                      {/* Curated Presets */}
-                      <div className="pt-3 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                          Or Select High-Res Fashion Presets:
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {FASHION_IMAGE_PRESETS.map((preset, pIdx) => (
-                            <button
-                              key={pIdx}
-                              type="button"
-                              onClick={() => setCatImageInput(preset.url)}
-                              className={`p-2 rounded-xl border text-left transition cursor-pointer flex items-center gap-2.5 ${
-                                catImageInput === preset.url
-                                  ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
-                                  : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
-                              }`}
-                            >
-                              <img
-                                src={preset.url}
-                                alt={preset.label}
-                                className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
-                              />
-                              <span className="text-[11px] truncate leading-tight">
-                                {preset.label}
-                              </span>
-                            </button>
-                          ))}
+                      {/* Uploaded Images Recommendation */}
+                      {uploadedImages.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Your Uploaded Photos (Recommended):
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {uploadedImages.length} saved
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                            {uploadedImages.map((item) => (
+                              <div
+                                key={item.id}
+                                className={`group relative p-2 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                                  catImageInput === item.url
+                                    ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
+                                    : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setCatImageInput(item.url)}
+                                  className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-left"
+                                >
+                                  <img
+                                    src={item.url}
+                                    alt={item.label}
+                                    className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
+                                  />
+                                  <span className="text-[11px] truncate leading-tight">
+                                    {item.label}
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeImage(item.id);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0 cursor-pointer"
+                                  title="Remove from recommended"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1845,35 +1846,57 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                         )}
                       </div>
 
-                      {/* Curated Presets */}
-                      <div className="pt-3 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                          Or Click Curated Fashion Photo Presets:
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {FASHION_IMAGE_PRESETS.map((preset, pIdx) => (
-                            <button
-                              key={pIdx}
-                              type="button"
-                              onClick={() => setSubImageInput(preset.url)}
-                              className={`p-2 rounded-xl border text-left transition cursor-pointer flex items-center gap-2.5 ${
-                                subImageInput === preset.url
-                                  ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
-                                  : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
-                              }`}
-                            >
-                              <img
-                                src={preset.url}
-                                alt={preset.label}
-                                className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
-                              />
-                              <span className="text-[11px] truncate leading-tight">
-                                {preset.label}
-                              </span>
-                            </button>
-                          ))}
+                      {/* Uploaded Images Recommendation */}
+                      {uploadedImages.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Your Uploaded Photos (Recommended):
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {uploadedImages.length} saved
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                            {uploadedImages.map((item) => (
+                              <div
+                                key={item.id}
+                                className={`group relative p-2 rounded-xl border text-left transition flex items-center gap-2.5 ${
+                                  subImageInput === item.url
+                                    ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
+                                    : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setSubImageInput(item.url)}
+                                  className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-left"
+                                >
+                                  <img
+                                    src={item.url}
+                                    alt={item.label}
+                                    className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
+                                  />
+                                  <span className="text-[11px] truncate leading-tight">
+                                    {item.label}
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeImage(item.id);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0 cursor-pointer"
+                                  title="Remove from recommended"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2030,24 +2053,37 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                   </label>
                 </div>
 
-                {/* Quick Presets */}
-                <div className="pt-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Or select runway preset:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {FASHION_IMAGE_PRESETS.map((preset, pIdx) => (
-                      <button
-                        key={pIdx}
-                        type="button"
-                        onClick={() => setBannerImageInput(preset.url)}
-                        className="text-[10px] px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:border-black hover:bg-slate-50 text-slate-700 transition cursor-pointer"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
+                {/* Uploaded Images Recommendation */}
+                {uploadedImages.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                      Your Uploaded Photos (Recommended):
+                    </span>
+                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
+                      {uploadedImages.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setBannerImageInput(item.url)}
+                          className={`p-1.5 rounded-lg border text-left transition cursor-pointer flex items-center gap-2 ${
+                            bannerImageInput === item.url
+                              ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
+                              : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
+                          }`}
+                        >
+                          <img
+                            src={item.url}
+                            alt={item.label}
+                            className="w-8 h-8 object-cover rounded shrink-0 border border-slate-200"
+                          />
+                          <span className="text-[10px] max-w-[120px] truncate leading-tight">
+                            {item.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Typography overlay fields */}
