@@ -62,7 +62,9 @@ export const AdminLoginGate: React.FC = () => {
       setIsLoading(false);
 
       if (!res.success) {
-        setErrorMessage(res.message || 'Invalid credentials. Please verify and try again.');
+        setErrorMessage(
+          res.message || 'Invalid credentials. Please enter your correct mobile number/username and password.'
+        );
         triggerShake();
       }
     }, 200);

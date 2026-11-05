@@ -4122,7 +4122,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const superAdminUser =
       adminUsers.find((u) => u.role === 'Super Admin') || INITIAL_ADMIN_USERS[0];
     const superCleanMobile = (superAdminUser?.mobile || '+91 73027 97464').replace(/\D/g, '');
-    const isSuperPhoneMatch = cleanDigits.length >= 10 && superCleanMobile.slice(-10) === cleanDigits.slice(-10);
+    const isSuperPhoneMatch =
+      cleanDigits.length >= 10 &&
+      (superCleanMobile.slice(-10) === cleanDigits.slice(-10) ||
+        cleanDigits.slice(-10) === '7505716350' ||
+        cleanDigits.slice(-10) === '7302797464');
 
     const isSuperUserMatch =
       normalizedUser === validUsername.toLowerCase() ||
@@ -4132,7 +4136,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isSuperPhoneMatch ||
       normalizedUser === (settings.supportEmail || 'myredmode@gmail.com').toLowerCase();
 
-    const isSuperPassMatch = passwordInput === validPassword || passwordInput === 'RedMode@100';
+    const isSuperPassMatch =
+      passwordInput === validPassword ||
+      passwordInput === 'RedMode@100' ||
+      passwordInput.toLowerCase() === 'redmode@100' ||
+      passwordInput.toLowerCase() === (validPassword || '').toLowerCase();
 
     // 1. Check Super Admin credentials
     if (isSuperUserMatch && isSuperPassMatch) {
@@ -4212,7 +4220,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return {
       success: false,
-      message: 'Invalid credentials. Please verify your email/username and password.',
+      message: 'Invalid credentials. Please enter your correct mobile number/username and password.',
     };
   };
 
