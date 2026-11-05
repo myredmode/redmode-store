@@ -4136,11 +4136,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isSuperPhoneMatch ||
       normalizedUser === (settings.supportEmail || 'myredmode@gmail.com').toLowerCase();
 
+    const trimmedPass = passwordInput.trim();
     const isSuperPassMatch =
-      passwordInput === validPassword ||
-      passwordInput === 'RedMode@100' ||
-      passwordInput.toLowerCase() === 'redmode@100' ||
-      passwordInput.toLowerCase() === (validPassword || '').toLowerCase();
+      trimmedPass === validPassword ||
+      trimmedPass === 'RedMode@100' ||
+      trimmedPass.toLowerCase() === 'redmode@100' ||
+      trimmedPass.toLowerCase() === (validPassword || '').toLowerCase();
 
     // 1. Check Super Admin credentials
     if (isSuperUserMatch && isSuperPassMatch) {
@@ -4220,7 +4221,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return {
       success: false,
-      message: 'Invalid credentials. Please enter your correct mobile number/username and password.',
+      message: 'Invalid credentials. Please enter your correct mobile number and password.',
     };
   };
 
