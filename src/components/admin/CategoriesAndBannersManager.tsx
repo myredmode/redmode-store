@@ -143,7 +143,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
       if (compressed) {
         setter(compressed);
         addImage(compressed, file.name.replace(/\.[^/.]+$/, ''));
-        showStatus('Photo uploaded and saved to your recommended library!', 'success');
+        showStatus('Photo uploaded successfully!', 'success');
       }
     } catch {
       showStatus('Failed to process image file.', 'error');
@@ -1312,13 +1312,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                   <h2 className="text-sm sm:text-base font-bold text-slate-900">
                     {isCreatingCategory ? 'Add New Category' : `Edit Category: ${editingCategory?.name}`}
                   </h2>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
-                    Category Studio
-                  </span>
                 </div>
-                <p className="text-[11px] text-slate-500 hidden sm:block">
-                  Main catalogue category displayed on Home 2-column editorial grid and navigation
-                </p>
               </div>
             </div>
 
@@ -1358,9 +1352,6 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
                           Category Identity
                         </h3>
-                        <p className="text-xs text-slate-500">
-                          Name, URL slug, and brand tagline
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -1411,23 +1402,20 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                   </div>
                 </div>
 
-                {/* CARD 2: Category Photo Tile */}
+                {/* CARD 2: Home Tile Image */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-2xs space-y-5">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                       <ImageIcon className="w-5 h-5 text-black" />
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                          Category Photo / Home Tile Image *
+                          Home Tile Image *
                         </h3>
-                        <p className="text-xs text-slate-500">
-                          Editorial portrait photo representing this category in the Home page grid and discovery bar
-                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                     {/* Live Preview Box */}
                     <div className="md:col-span-4 flex flex-col items-center">
                       <div className="w-full max-w-[220px] aspect-[4/5] rounded-2xl overflow-hidden bg-zinc-950 border-2 border-slate-200 shadow-md relative group">
@@ -1441,7 +1429,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-4 text-center">
                             <ImageIcon className="w-8 h-8 mb-2 opacity-40 text-slate-400" />
                             <span className="text-xs font-medium">No Photo Selected</span>
-                            <span className="text-[10px] text-slate-500 mt-1">Upload or pick a preset</span>
+                            <span className="text-[10px] text-slate-500 mt-1">Upload an image below</span>
                           </div>
                         )}
                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 text-white">
@@ -1458,25 +1446,12 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                       </span>
                     </div>
 
-                    {/* Inputs & Uploads */}
-                    <div className="md:col-span-8 space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                          Image URL
-                        </label>
-                        <input
-                          type="url"
-                          value={catImageInput}
-                          onChange={(e) => setCatImageInput(e.target.value)}
-                          placeholder="Paste Direct Image URL (https://...)"
-                          className="w-full text-xs font-mono px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-black outline-none transition"
-                        />
-                      </div>
-
+                    {/* Direct Upload Controls */}
+                    <div className="md:col-span-8 flex flex-col justify-center items-start gap-4">
                       <div className="flex flex-wrap items-center gap-3">
-                        <label className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition inline-flex items-center gap-2 cursor-pointer shadow-xs">
+                        <label className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition inline-flex items-center gap-2 cursor-pointer shadow-xs">
                           <Upload className="w-4 h-4 text-emerald-400" />
-                          <span>Upload Photo from Device</span>
+                          <span>{catImageInput ? 'Change Photo from Device' : 'Upload Photo from Device'}</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1488,125 +1463,17 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                           <button
                             type="button"
                             onClick={() => setCatImageInput('')}
-                            className="px-3 py-2 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-medium transition cursor-pointer"
+                            className="px-4 py-3 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition cursor-pointer"
                           >
                             Remove Photo
                           </button>
                         )}
                       </div>
-
-                      {/* Uploaded Images Recommendation */}
-                      {uploadedImages.length > 0 && (
-                        <div className="pt-3 border-t border-slate-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                              Your Uploaded Photos (Recommended):
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {uploadedImages.length} saved
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-                            {uploadedImages.map((item) => (
-                              <div
-                                key={item.id}
-                                className={`group relative p-2 rounded-xl border text-left transition flex items-center gap-2.5 ${
-                                  catImageInput === item.url
-                                    ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
-                                    : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setCatImageInput(item.url)}
-                                  className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-left"
-                                >
-                                  <img
-                                    src={item.url}
-                                    alt={item.label}
-                                    className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
-                                  />
-                                  <span className="text-[11px] truncate leading-tight">
-                                    {item.label}
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeImage(item.id);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0 cursor-pointer"
-                                  title="Remove from recommended"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* CARD 3: Category Top Banner Image */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-black" />
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                          Category Top Banner Image (Optional)
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Wide collection banner displayed at the top when customers enter this category
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={catBannerInput}
-                        onChange={(e) => setCatBannerInput(e.target.value)}
-                        placeholder="Wide Banner Image URL (e.g. 1920×600 px)"
-                        className="flex-1 text-xs font-mono px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-black outline-none transition"
-                      />
-                      <label className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200 shrink-0">
-                        <Upload className="w-4 h-4" />
-                        <span>Upload Banner</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileChange(e, setCatBannerInput)}
-                        />
-                      </label>
-                    </div>
-
-                    {catBannerInput && (
-                      <div className="w-full h-32 rounded-xl overflow-hidden bg-zinc-950 border border-slate-200 relative shadow-2xs">
-                        <img
-                          src={catBannerInput}
-                          alt="Banner Preview"
-                          className="w-full h-full object-cover object-center"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCatBannerInput('')}
-                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-black text-white text-xs transition cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* CARD 4: Home Page Visibility Toggle */}
+                {/* CARD 3: Home Page Visibility Toggle */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-2xs flex items-center justify-between">
                   <div>
                     <span className="block text-sm font-bold text-slate-900">
@@ -1628,10 +1495,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                 </div>
 
                 {/* Form In-Flow Action Row */}
-                <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">
-                    Category Studio • Changes update live across the entire store
-                  </span>
+                <div className="pt-4 border-t border-slate-200 flex items-center justify-end">
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -1809,25 +1673,12 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                       </span>
                     </div>
 
-                    {/* Inputs & Uploads */}
-                    <div className="md:col-span-8 space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                          Image URL
-                        </label>
-                        <input
-                          type="url"
-                          value={subImageInput}
-                          onChange={(e) => setSubImageInput(e.target.value)}
-                          placeholder="Paste Direct Image URL (https://...)"
-                          className="w-full text-xs font-mono px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-black outline-none transition"
-                        />
-                      </div>
-
+                    {/* Direct Upload Controls */}
+                    <div className="md:col-span-8 flex flex-col justify-center items-start gap-4">
                       <div className="flex flex-wrap items-center gap-3">
-                        <label className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition inline-flex items-center gap-2 cursor-pointer shadow-xs">
+                        <label className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition inline-flex items-center gap-2 cursor-pointer shadow-xs">
                           <Upload className="w-4 h-4 text-emerald-400" />
-                          <span>Upload Photo from Device</span>
+                          <span>{subImageInput ? 'Change Photo from Device' : 'Upload Photo from Device'}</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1839,118 +1690,13 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                           <button
                             type="button"
                             onClick={() => setSubImageInput('')}
-                            className="px-3 py-2 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-medium transition cursor-pointer"
+                            className="px-4 py-3 rounded-xl border border-slate-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition cursor-pointer"
                           >
                             Remove Photo
                           </button>
                         )}
                       </div>
-
-                      {/* Uploaded Images Recommendation */}
-                      {uploadedImages.length > 0 && (
-                        <div className="pt-3 border-t border-slate-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                              Your Uploaded Photos (Recommended):
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {uploadedImages.length} saved
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-                            {uploadedImages.map((item) => (
-                              <div
-                                key={item.id}
-                                className={`group relative p-2 rounded-xl border text-left transition flex items-center gap-2.5 ${
-                                  subImageInput === item.url
-                                    ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
-                                    : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setSubImageInput(item.url)}
-                                  className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer text-left"
-                                >
-                                  <img
-                                    src={item.url}
-                                    alt={item.label}
-                                    className="w-9 h-11 object-cover rounded-lg shrink-0 border border-slate-200"
-                                  />
-                                  <span className="text-[11px] truncate leading-tight">
-                                    {item.label}
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeImage(item.id);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0 cursor-pointer"
-                                  title="Remove from recommended"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
-
-                {/* CARD 3: Subcategory Header Banner (Optional) */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-black" />
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                          Subcategory Header Banner (Optional)
-                        </h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={subBannerInput}
-                        onChange={(e) => setSubBannerInput(e.target.value)}
-                        placeholder="Wide Banner Image URL (e.g. 1920×600 px)"
-                        className="flex-1 text-xs font-mono px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-black outline-none transition"
-                      />
-                      <label className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200 shrink-0">
-                        <Upload className="w-4 h-4" />
-                        <span>Upload Banner</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileChange(e, setSubBannerInput)}
-                        />
-                      </label>
-                    </div>
-
-                    {subBannerInput && (
-                      <div className="w-full h-32 rounded-xl overflow-hidden bg-zinc-950 border border-slate-200 relative shadow-2xs">
-                        <img
-                          src={subBannerInput}
-                          alt="Banner Preview"
-                          className="w-full h-full object-cover object-center"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setSubBannerInput('')}
-                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-black text-white text-xs transition cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -2052,38 +1798,6 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                     />
                   </label>
                 </div>
-
-                {/* Uploaded Images Recommendation */}
-                {uploadedImages.length > 0 && (
-                  <div className="pt-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                      Your Uploaded Photos (Recommended):
-                    </span>
-                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
-                      {uploadedImages.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setBannerImageInput(item.url)}
-                          className={`p-1.5 rounded-lg border text-left transition cursor-pointer flex items-center gap-2 ${
-                            bannerImageInput === item.url
-                              ? 'border-black bg-slate-100 font-bold text-black ring-1 ring-black'
-                              : 'border-slate-200 bg-white hover:border-slate-400 text-slate-700'
-                          }`}
-                        >
-                          <img
-                            src={item.url}
-                            alt={item.label}
-                            className="w-8 h-8 object-cover rounded shrink-0 border border-slate-200"
-                          />
-                          <span className="text-[10px] max-w-[120px] truncate leading-tight">
-                            {item.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Typography overlay fields */}
