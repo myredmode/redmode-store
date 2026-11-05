@@ -816,7 +816,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const saved = localStorage.getItem('redmode_admin_credentials');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return { username: 'admin', password: 'RedMode@100', saved: true };
+    return { username: '', password: '', saved: false };
   });
 
   // Multi-Employee Admin Users & Active Persona

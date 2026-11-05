@@ -18,15 +18,15 @@ export const AdminLoginGate: React.FC = () => {
   } = useStore();
 
   const [identifier, setIdentifier] = useState(
-    adminSavedCredentials.saved ? adminSavedCredentials.username : ''
+    adminSavedCredentials?.saved ? adminSavedCredentials.username : ''
   );
   const [password, setPassword] = useState(
-    adminSavedCredentials.saved && adminSavedCredentials.password
+    adminSavedCredentials?.saved && adminSavedCredentials.password
       ? adminSavedCredentials.password
       : ''
   );
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(Boolean(adminSavedCredentials?.saved));
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
@@ -113,7 +113,7 @@ export const AdminLoginGate: React.FC = () => {
                 type="text"
                 required
                 autoComplete="username"
-                placeholder="e.g. 7302797464 or admin"
+                placeholder="Enter username, mobile or email"
                 value={identifier}
                 onChange={(e) => {
                   setIdentifier(e.target.value);
@@ -135,7 +135,7 @@ export const AdminLoginGate: React.FC = () => {
                 type={showPassword ? 'text' : 'password'}
                 required
                 autoComplete="current-password"
-                placeholder="Enter your password"
+                placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
