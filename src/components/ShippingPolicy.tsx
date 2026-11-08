@@ -30,7 +30,7 @@ export const ShippingPolicy: React.FC = () => {
               }}
               className="text-black underline underline-offset-2 hover:opacity-70 cursor-pointer font-normal text-left"
             >
-              https://{websiteDomain}/track-order?brand={brandName.toLowerCase()}
+              https://{websiteDomain}/trackyourorder
             </button>
           </p>
 

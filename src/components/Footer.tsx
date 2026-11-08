@@ -67,7 +67,7 @@ export const Footer: React.FC = () => {
                   }}
                   className="hover:text-zinc-950 transition-colors duration-150 text-left cursor-pointer inline-block py-0.5"
                 >
-                  Order Tracking
+                  Track Your Order
                 </button>
               </li>
               <li>
@@ -175,7 +175,7 @@ export const Footer: React.FC = () => {
                   }}
                   className="hover:text-zinc-950 transition-colors duration-150 text-left cursor-pointer inline-block py-0.5"
                 >
-                  Order Tracking
+                  Track Your Order
                 </button>
               </li>
               <li>

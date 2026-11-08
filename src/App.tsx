@@ -258,7 +258,15 @@ const StoreContent: React.FC = () => {
         return;
       }
 
-      if (first === 'track-order' || first === 'track' || first === 'tracking') {
+      if (
+        first === 'trackyourorder' ||
+        first === 'track-your-order' ||
+        first === 'trackorder' ||
+        first === 'track-order' ||
+        first === 'track' ||
+        first === 'tracking' ||
+        first === 'order-tracking'
+      ) {
         setIsLoginOpen(false);
         setActiveView('track-order');
         return;
@@ -442,11 +450,12 @@ const StoreContent: React.FC = () => {
       return '/catalogue';
     }
     if (activeView === 'product-detail' && selectedProductId) {
-      return `/product/${selectedProductId}`;
+      const prod = products.find((p) => p.id === selectedProductId);
+      return prod?.slug ? `/product/${prod.slug}` : `/product/${selectedProductId}`;
     }
     if (activeView === 'contact' || activeView === 'contact-us') return '/contact';
     if (activeView === 'checkout') return '/checkout';
-    if (activeView === 'track-order') return '/track-order';
+    if (activeView === 'track-order') return '/trackyourorder';
     if (activeView === 'account') return '/account';
     if (activeView === 'blogs') return '/blogs';
     if (activeView === 'wishlist') return '/wishlist';
@@ -467,6 +476,7 @@ const StoreContent: React.FC = () => {
     selectedCategorySlug,
     selectedSubcategorySlug,
     selectedProductId,
+    products,
   ]);
 
   // Stable ref to latest syncPathToState so effects don't re-run and overwrite view state on internal updates

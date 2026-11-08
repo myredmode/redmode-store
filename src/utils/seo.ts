@@ -467,7 +467,7 @@ export function buildSeoData({
     return {
       title,
       description,
-      canonicalUrl: `${origin}/#track-order`,
+      canonicalUrl: `${origin}/trackyourorder`,
       ogType: 'website',
       ogImage: defaultImage,
       jsonLd: {

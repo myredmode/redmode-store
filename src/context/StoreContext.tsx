@@ -631,7 +631,15 @@ export function parseCurrentLocation(allProducts?: Product[]): {
   if (first === 'checkout') {
     return { view: 'checkout', productId: null, categorySlug: null, subcategorySlug: null, blogId: null };
   }
-  if (first === 'track-order' || first === 'track') {
+  if (
+    first === 'trackyourorder' ||
+    first === 'track-your-order' ||
+    first === 'trackorder' ||
+    first === 'track-order' ||
+    first === 'track' ||
+    first === 'tracking' ||
+    first === 'order-tracking'
+  ) {
     return { view: 'track-order', productId: null, categorySlug: null, subcategorySlug: null, blogId: null };
   }
   if (first === 'account') {
@@ -763,7 +771,7 @@ export function computeTargetPath(
     return '/collection';
   }
   if (view === 'checkout') return '/checkout';
-  if (view === 'track-order') return '/track-order';
+  if (view === 'track-order') return '/trackyourorder';
   if (view === 'account') return '/account';
   if (view === 'wishlist') return '/wishlist';
   if (view === 'search') return '/search';
