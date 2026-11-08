@@ -360,137 +360,10 @@ export const Catalogue: React.FC = () => {
     return fallbackMap[cleanSub] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1800&q=85';
   };
 
-  // Determine if Home-page-style subcategory photo tiles should be shown
-  const shouldShowSubcategoryTiles =
-    activeSubcategories.length > 0 &&
-    !selectedSubcategorySlug &&
-    !showAllSubcatProducts;
-
   return (
     <div className="w-full bg-white font-sans text-zinc-900 pb-20 sm:pb-12">
       {/* ========================================================================= */}
-      {/* 1. SUB-CATEGORIES PHOTO TILES (HOME PAGE BANNER STYLE)                     */}
-      {/* "y teeni categories bhi home page ke banner ki tarah hi dikhengi          */}
-      {/*  (slide nahi ho aur banner images manageable ho from admin panel)"        */}
-      {/* agar subcategories nahi ho to direct product dikhe                        */}
-      {/* ========================================================================= */}
-      {shouldShowSubcategoryTiles ? (
-        <section id="subcategory-photo-tiles-section" className="w-full bg-white">
-          {/* 1. Mobile Subcategories Feed (Vertical Stack - md:hidden) */}
-          <div className="w-full space-y-0 md:hidden">
-            {activeSubcategories.map((sub, idx) => {
-              const rawSubImage = sub.imageUrl || sub.bannerUrl;
-              const imageUrl = getCacheBustedUrl(
-                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
-                currentCategory?.updatedAt
-              );
-              return (
-                <div
-                  key={`mobile-${sub.id}`}
-                  id={`mobile-subcat-tile-${sub.slug}`}
-                  onClick={() => {
-                    setSelectedSubcategorySlug(sub.slug);
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-                  }}
-                  className="relative w-full aspect-[3/4] overflow-hidden bg-zinc-950 cursor-pointer select-none group border-b border-zinc-900/10 active:scale-[0.992] transition-transform duration-150"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Explore ${sub.name} Collection`}
-                >
-                  {/* High-Resolution Luxury Fashion Photo */}
-                  <img
-                    src={imageUrl}
-                    alt={sub.name}
-                    className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-105"
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                  />
-
-                  {/* Dark Vignette Gradient for Editorial Contrast & Legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
-
-                  {/* Typography at Bottom Center */}
-                  <div className="absolute inset-x-0 bottom-8 px-4 text-center flex flex-col items-center justify-center pointer-events-none space-y-1">
-                    <span className="text-[10px] font-semibold tracking-[0.24em] text-zinc-300 uppercase drop-shadow-md">
-                      {sub.description || 'EXCLUSIVE LUXURY EDIT'}
-                    </span>
-
-                    <h2 className="text-3xl font-bold uppercase tracking-wider text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
-                      {sub.name.toUpperCase()}
-                    </h2>
-
-                    <span className="text-[10px] text-white/90 tracking-[0.18em] uppercase font-medium pt-1 underline underline-offset-4 decoration-white/60">
-                      EXPLORE COLLECTION →
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 2. Desktop Subcategories Grid (Side-by-Side Vertical Tiles like Home Page - hidden md:grid) */}
-          <div
-            id="desktop-subcategory-banners"
-            className="hidden md:grid w-full h-[calc(100vh-48px)] min-h-[600px] max-h-[920px] bg-zinc-950 overflow-hidden"
-            style={{
-              gridTemplateColumns: `repeat(${activeSubcategories.length}, minmax(0, 1fr))`,
-            }}
-          >
-            {activeSubcategories.map((sub, idx) => {
-              const rawSubImage = sub.imageUrl || sub.bannerUrl;
-              const imageUrl = getCacheBustedUrl(
-                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
-                currentCategory?.updatedAt
-              );
-              return (
-                <div
-                  key={`desktop-${sub.id}`}
-                  id={`desktop-subcat-tile-${sub.slug}`}
-                  onClick={() => {
-                    setSelectedSubcategorySlug(sub.slug);
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-                  }}
-                  className="relative w-full h-full overflow-hidden bg-zinc-950 cursor-pointer select-none group border-r border-zinc-900/30 last:border-r-0 transition-transform duration-200"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Explore ${sub.name} Collection`}
-                >
-                  {/* High-Resolution Luxury Fashion Photo (Preserves Full Portrait Model) */}
-                  <img
-                    src={imageUrl}
-                    alt={sub.name}
-                    className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                  />
-
-                  {/* Subtle Vignette Gradient for Legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent pointer-events-none group-hover:from-black/90 transition-all duration-300" />
-
-                  {/* Minimal Typography at Bottom Center (Exact Home Page Style) */}
-                  <div className="absolute inset-x-0 bottom-8 lg:bottom-12 px-3 text-center flex flex-col items-center justify-end pointer-events-none space-y-1">
-                    {/* Subtitle / Tagline */}
-                    <span className="text-[10px] lg:text-[11px] font-semibold tracking-[0.2em] text-zinc-300 uppercase drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 line-clamp-1">
-                      {sub.description || 'EXCLUSIVE LUXURY EDIT'}
-                    </span>
-
-                    {/* Subcategory Name in Bold with Elegant Underline */}
-                    <h2 className="text-sm lg:text-base xl:text-lg font-bold tracking-[0.16em] uppercase text-white drop-shadow-md underline underline-offset-8 decoration-white/70 group-hover:decoration-white transition-all">
-                      {sub.name.toUpperCase()}
-                    </h2>
-
-                    {/* Action Callout */}
-                    <span className="text-[10px] text-white/90 tracking-[0.18em] uppercase font-medium pt-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                      EXPLORE COLLECTION →
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : (
-        <>
-          {/* ========================================================================= */}
-          {/* 2. MINIMAL FILTER & SORT TOOLBAR (PREMIUM FASHION EDITORIAL HEADER)        */}
+      {/* 2. MINIMAL FILTER & SORT TOOLBAR (PREMIUM FASHION EDITORIAL HEADER)        */}
           {/* Left: [🎚] FILTER   [⇅] SORT BY                                           */}
           {/* Center: {count} PRODUCTS                                                  */}
           {/* Right: [ ▢ ] (1-Col)   [ ◫ ] (2-Col)   [ ▦ ] (4-Col Grid)                */}
@@ -624,6 +497,49 @@ export const Catalogue: React.FC = () => {
           </div>
 
           {/* ========================================================================= */}
+          {/* 2B. SUBCATEGORY QUICK FILTER CHIPS (e.g. Straight Fit, Regular Fit)        */}
+          {/* ========================================================================= */}
+          {activeSubcategories.length > 0 && (
+            <div className="w-full bg-zinc-50/80 border-b border-zinc-200/90 py-2.5 px-3 sm:px-6 lg:px-8">
+              <div className="max-w-[1920px] mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 mr-1 shrink-0 select-none">
+                  STYLE:
+                </span>
+                <button
+                  type="button"
+                  id="subcat-chip-all"
+                  onClick={() => setSelectedSubcategorySlug(null)}
+                  className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                    !selectedSubcategorySlug
+                      ? 'bg-zinc-950 text-white shadow-xs'
+                      : 'bg-white text-zinc-700 hover:bg-zinc-100 hover:text-black border border-zinc-200'
+                  }`}
+                >
+                  All {currentCategory?.name || 'Styles'}
+                </button>
+                {activeSubcategories.map((sub) => {
+                  const isSelected = selectedSubcategorySlug?.toLowerCase() === sub.slug.toLowerCase();
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      id={`subcat-chip-${sub.slug}`}
+                      onClick={() => setSelectedSubcategorySlug(isSelected ? null : sub.slug)}
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                        isSelected
+                          ? 'bg-zinc-950 text-white shadow-xs'
+                          : 'bg-white text-zinc-700 hover:bg-zinc-100 hover:text-black border border-zinc-200'
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
           {/* 3. MAIN PRODUCT FEED (PREMIUM 4-COLUMN DESKTOP / 1 OR 2-COLUMN MOBILE GRID) */}
           {/* Clean minimal spacing, identical aspect ratio portrait photography        */}
           {/* ========================================================================= */}
@@ -701,8 +617,6 @@ export const Catalogue: React.FC = () => {
               )}
             </div>
           </div>
-        </>
-      )}
 
       {/* ========================================================================= */}
       {/* 5. SLIDE-OVER FILTER DRAWER (Rare Rabbit style clean sidebar drawer)       */}

@@ -80,8 +80,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
   const hasSubcategories = Boolean(
     activeCategoryObj?.subcategories && activeCategoryObj.subcategories.length > 0
   );
-  const isBrowsingSubcategoriesScreen =
-    activeView === 'catalogue' && hasSubcategories && !selectedSubcategorySlug;
+  const isBrowsingSubcategoriesScreen = false;
   const isProductDetailPage = activeView === 'product-detail';
   // Header is ALWAYS visible on subsection (subcategories screen) & catalogue
   // Only hidden on product detail page
