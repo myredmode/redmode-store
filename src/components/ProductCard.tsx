@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import { Bookmark, ShoppingBag, X, Check } from 'lucide-react';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 
 interface ProductCardProps {
   product: Product;
@@ -63,18 +64,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     (c) => c.name.toLowerCase() === effectiveColor.toLowerCase()
   ) || (product.colorOptions && product.colorOptions.length > 0 ? product.colorOptions[0] : undefined);
 
-  // Primary image
-  const primaryImage =
+  // Primary image with cache-busting versioning
+  const rawPrimary =
     activeColorOption?.images?.[0] ||
     activeColorOption?.image ||
     product.mainImage ||
     product.images?.[0] ||
     'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85';
+  const primaryImage = getCacheBustedUrl(rawPrimary, product.updatedAt);
 
-  // Secondary image on hover (if available)
-  const secondaryImage =
+  // Secondary image on hover (if available) with cache-busting
+  const rawSecondary =
     activeColorOption?.images?.[1] ||
     (product.images && product.images.length > 1 ? product.images[1] : null);
+  const secondaryImage = rawSecondary ? getCacheBustedUrl(rawSecondary, product.updatedAt) : null;
 
   const hasSecondaryImage = Boolean(secondaryImage && secondaryImage !== primaryImage);
 

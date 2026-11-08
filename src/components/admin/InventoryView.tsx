@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Product, ColorVariant } from '../../types';
+import { getCacheBustedUrl } from '../../utils/cacheBuster';
 import {
   Search,
   AlertTriangle,
@@ -1202,7 +1203,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ onEditProduct }) =
                             title={isInactive ? 'Listing is inactive' : item.productTitle}
                           >
                             <img
-                              src={item.image || 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=300&q=80'}
+                              src={getCacheBustedUrl(item.image, item.product.updatedAt) || 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=300&q=80'}
                               alt={item.productTitle}
                               draggable={false}
                               className={`w-full h-full object-cover object-top select-none ${

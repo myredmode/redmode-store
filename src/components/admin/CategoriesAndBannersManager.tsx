@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { Category, Subcategory, HeroBanner, MenuHighlightItem } from '../../types';
+import { getCacheBustedUrl } from '../../utils/cacheBuster';
 import { compressImage } from '../../utils/imageUpload';
 import { useUploadedImages } from '../../utils/userUploadedImages';
 
@@ -689,7 +690,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                     <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200 group">
                       {cat.imageUrl ? (
                         <img
-                          src={cat.imageUrl}
+                          src={getCacheBustedUrl(cat.imageUrl, cat.updatedAt || cat.order)}
                           alt={cat.name}
                           className="w-full h-full object-cover object-top transition duration-200 group-hover:scale-105"
                         />
@@ -830,11 +831,12 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                           {/* Subcategory Photo Thumbnail */}
                           <div className="w-full aspect-[4/5] rounded-md overflow-hidden bg-zinc-100 mb-2 relative">
                             <img
-                              src={
+                              src={getCacheBustedUrl(
                                 sub.imageUrl ||
-                                cat.imageUrl ||
-                                'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=80'
-                              }
+                                  cat.imageUrl ||
+                                  'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=80',
+                                cat.updatedAt || cat.order
+                              )}
                               alt={sub.name}
                               className="w-full h-full object-cover object-top transition duration-200 group-hover:scale-105"
                             />

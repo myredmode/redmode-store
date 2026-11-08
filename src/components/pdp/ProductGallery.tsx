@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Product } from '../../types';
+import { getCacheBustedUrl } from '../../utils/cacheBuster';
 
 interface ProductGalleryProps {
   product: Product;
@@ -29,12 +30,12 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
   onToggleWishlist,
   discountPercent,
 }) => {
-  // Collect all unique gallery images (prioritizes color-specific images if provided)
+  // Collect all unique gallery images (prioritizes color-specific images if provided) with cache-busting
   const allImages = React.useMemo(() => {
-    if (images && images.length > 0) return images;
-    const list = [product.mainImage, ...(product.images || [])];
-    return Array.from(new Set(list.filter(Boolean)));
-  }, [images, product.mainImage, product.images]);
+    const rawList = images && images.length > 0 ? images : [product.mainImage, ...(product.images || [])];
+    const unique = Array.from(new Set(rawList.filter(Boolean))) as string[];
+    return unique.map((img) => getCacheBustedUrl(img, product.updatedAt));
+  }, [images, product.mainImage, product.images, product.updatedAt]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -48,7 +49,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxScale, setLightboxScale] = useState(1);
 
-  const currentImage = allImages[activeIndex] || product.mainImage;
+  const currentImage = allImages[activeIndex] || getCacheBustedUrl(product.mainImage, product.updatedAt);
 
   // Reset active index when product, color, or image set changes
   useEffect(() => {

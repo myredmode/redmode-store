@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useStore } from '../context/StoreContext';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 import {
   X,
   Plus,
@@ -138,11 +139,12 @@ export const CartDrawer: React.FC = () => {
                 {/* Product Image */}
                 <div className="w-32 sm:w-36 aspect-[3/4] bg-zinc-100 shrink-0 overflow-hidden border border-zinc-200 shadow-2xs">
                   <img
-                    src={
+                    src={getCacheBustedUrl(
                       lastAddedItem.colorImage ||
-                      lastAddedItem.product.mainImage ||
-                      lastAddedItem.product.images?.[0]
-                    }
+                        lastAddedItem.product.mainImage ||
+                        lastAddedItem.product.images?.[0],
+                      lastAddedItem.product.updatedAt
+                    )}
                     alt={lastAddedItem.product.name}
                     className="w-full h-full object-cover object-top"
                   />
@@ -210,7 +212,7 @@ export const CartDrawer: React.FC = () => {
                         {/* Image */}
                         <div className="w-full aspect-[3/4] bg-zinc-100 overflow-hidden border border-zinc-200 mb-2 relative">
                           <img
-                            src={prod.mainImage}
+                            src={getCacheBustedUrl(prod.mainImage, prod.updatedAt)}
                             alt={prod.name}
                             className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
@@ -353,7 +355,7 @@ export const CartDrawer: React.FC = () => {
                         >
                           {/* Product Image */}
                           <img
-                            src={itemImage}
+                            src={getCacheBustedUrl(itemImage, item.product.updatedAt)}
                             alt={item.product.name}
                             className="w-20 h-26 object-cover object-top border border-zinc-200 shrink-0 bg-zinc-50"
                           />

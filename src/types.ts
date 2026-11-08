@@ -111,6 +111,7 @@ export interface Product {
   packed_width_cm?: number;
   packed_height_cm?: number;
   packed_weight_kg?: number;
+  updatedAt?: string;
 }
 
 export interface Subcategory {
@@ -120,6 +121,7 @@ export interface Subcategory {
   imageUrl?: string;
   bannerUrl?: string;
   description?: string;
+  updatedAt?: string;
 }
 
 export interface Category {
@@ -132,6 +134,7 @@ export interface Category {
   tagline?: string;
   showOnHome?: boolean;
   subcategories: Subcategory[];
+  updatedAt?: string;
 }
 
 export interface HeroBanner {

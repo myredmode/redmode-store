@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Product, ColorVariant } from '../types';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 import {
   Heart,
   ShoppingBag,
@@ -90,7 +91,7 @@ const WishlistCard: React.FC<WishlistCardProps> = ({
         className="relative aspect-3/4 w-full bg-zinc-100 overflow-hidden cursor-pointer"
       >
         <img
-          src={displayImage}
+          src={getCacheBustedUrl(displayImage, product.updatedAt)}
           alt={product.name}
           className="w-full h-full object-cover object-top transition duration-500 group-hover:scale-105"
           loading="lazy"

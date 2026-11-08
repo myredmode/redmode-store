@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Category } from '../types';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 
 export const HomeView: React.FC = () => {
   const {
@@ -74,7 +75,7 @@ export const HomeView: React.FC = () => {
     >
       {cat.imageUrl || cat.bannerUrl ? (
         <img
-          src={cat.imageUrl || cat.bannerUrl}
+          src={getCacheBustedUrl(cat.imageUrl || cat.bannerUrl, cat.updatedAt || cat.order)}
           alt={cat.name}
           className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
           loading="eager"
@@ -131,7 +132,7 @@ export const HomeView: React.FC = () => {
           >
             {cat.imageUrl || cat.bannerUrl ? (
               <img
-                src={cat.imageUrl || cat.bannerUrl}
+                src={getCacheBustedUrl(cat.imageUrl || cat.bannerUrl, cat.updatedAt || cat.order)}
                 alt={cat.name}
                 className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-105"
                 loading={idx === 0 ? 'eager' : 'lazy'}

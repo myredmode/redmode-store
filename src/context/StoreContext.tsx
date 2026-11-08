@@ -2241,7 +2241,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateProduct = (id: string, updatedFields: Partial<Product>) => {
     const targetProduct = products.find((p) => p.id === id);
-    const updatedProd = { ...(targetProduct || {}), ...updatedFields, id } as Product;
+    const nowIso = new Date().toISOString();
+    const updatedProd = {
+      ...(targetProduct || {}),
+      ...updatedFields,
+      id,
+      updatedAt: updatedFields.updatedAt || nowIso,
+    } as Product;
 
     setProducts((prev) => {
       const next = prev.map((p) => (p.id === id ? updatedProd : p));
@@ -2320,6 +2326,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tagline: nameOrCat.tagline || '',
         showOnHome: nameOrCat.showOnHome !== false,
         subcategories: Array.isArray(nameOrCat.subcategories) ? nameOrCat.subcategories : [],
+        updatedAt: new Date().toISOString(),
         ...nameOrCat,
       };
     } else {
@@ -2335,6 +2342,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tagline: categoryData?.tagline || '',
         showOnHome: categoryData?.showOnHome !== false,
         subcategories: Array.isArray(categoryData?.subcategories) ? categoryData.subcategories : [],
+        updatedAt: new Date().toISOString(),
         ...categoryData,
       };
     }
@@ -2360,12 +2368,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateCategory = async (categoryOrId: Category | string, partialData?: Partial<Category>): Promise<boolean> => {
     const targetId = typeof categoryOrId === 'string' ? categoryOrId : categoryOrId.id;
     const existing = categories.find((c) => c.id === targetId);
+    const nowIso = new Date().toISOString();
 
     const merged: Category =
       typeof categoryOrId === 'string'
         ? {
             ...(existing || { id: targetId, name: '', slug: targetId, order: 1, subcategories: [] }),
             ...partialData,
+            updatedAt: partialData?.updatedAt || nowIso,
             subcategories:
               partialData?.subcategories !== undefined
                 ? Array.isArray(partialData.subcategories)
@@ -2377,6 +2387,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         : {
             ...categoryOrId,
+            updatedAt: categoryOrId.updatedAt || nowIso,
             subcategories: Array.isArray(categoryOrId.subcategories)
               ? categoryOrId.subcategories
               : Array.isArray(existing?.subcategories)
