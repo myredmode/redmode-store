@@ -26,6 +26,18 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /analytics_events/{eventId} {
+      allow read, write: if true;
+    }
+
+    match /analytics_categories/{categoryId} {
+      allow read, write: if true;
+    }
+
+    match /analytics_products/{productId} {
+      allow read, write: if true;
+    }
+
     match /_connection_test/{testId} {
       allow read, write: if true;
     }

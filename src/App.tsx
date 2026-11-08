@@ -29,6 +29,7 @@ import { SeoManager } from './components/SeoManager';
 import { db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ShieldCheck } from 'lucide-react';
+import { useNavigationAnalytics } from './hooks/useNavigationAnalytics';
 
 // Option 1: Ultra-Fast Micro Dissolve (200ms) - Clean, instantaneous feel, zero lag
 const microDissolveVariants = {
@@ -157,6 +158,9 @@ const StoreContent: React.FC = () => {
     products,
     isAdminAuthenticated,
   } = useStore();
+
+  // Track navigation across view changes in StoreContent and push events to analytics service
+  useNavigationAnalytics();
 
   const shouldReduceMotion = useReducedMotion();
 

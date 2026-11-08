@@ -19,6 +19,7 @@ import { StaffActivityMonitor } from './StaffActivityMonitor';
 import { FestivalAlertModal } from './FestivalAlertModal';
 import { ShopAdvisorEventsModal } from './ShopAdvisorEventsModal';
 import { computeAllFestivalAlerts, formatFestivalDate } from '../../utils/indianFestivals';
+import { AnalyticsService } from '../../services/analytics';
 import {
   Home,
   Smartphone,
@@ -3401,6 +3402,113 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Popular Categories & Product Views Real-Time Monitor */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Popular Categories */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Popular Categories</h3>
+                      <p className="text-xs text-slate-500">Live navigation tracking from StoreContent</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      Live Feed
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const topCategories = AnalyticsService.getPopularCategories();
+                    if (topCategories.length === 0) {
+                      return (
+                        <div className="text-xs text-slate-400 py-6 text-center italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          Browsing events will automatically populate category popularity rankings here.
+                        </div>
+                      );
+                    }
+                    const maxViews = Math.max(...topCategories.map((c) => c.views), 1);
+                    return (
+                      <div className="space-y-3">
+                        {topCategories.slice(0, 5).map((cat, idx) => (
+                          <div key={cat.categorySlug} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 text-[10px] flex items-center justify-center font-bold">
+                                  {idx + 1}
+                                </span>
+                                {cat.categoryName}
+                                <span className="text-[10px] text-slate-400 font-mono">/{cat.categorySlug}</span>
+                              </span>
+                              <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full text-[11px]">
+                                {cat.views} {cat.views === 1 ? 'view' : 'views'}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-rose-500 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.round((cat.views / maxViews) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Popular Products */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Most Browsed Products</h3>
+                      <p className="text-xs text-slate-500">Tracked product views across sessions</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      <Eye className="w-3 h-3 text-emerald-600" />
+                      Real-time
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const topProducts = AnalyticsService.getPopularProducts();
+                    if (topProducts.length === 0) {
+                      return (
+                        <div className="text-xs text-slate-400 py-6 text-center italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          Product clicks and page transitions will rank top browsed items here.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-2.5">
+                        {topProducts.slice(0, 5).map((prod, idx) => (
+                          <div
+                            key={prod.productId}
+                            className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] flex items-center justify-center font-bold shrink-0">
+                                #{idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-800 truncate">{prod.productName}</p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  {prod.categorySlug ? `Category: ${prod.categorySlug}` : `ID: ${prod.productId}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="inline-block text-xs font-bold text-slate-900">
+                                {prod.views} {prod.views === 1 ? 'view' : 'views'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
