@@ -3,6 +3,7 @@ import { useStore } from '../context/StoreContext';
 import { ProductCard } from './ProductCard';
 import { ProductGridSkeleton } from './ProductGridSkeleton';
 import { expandProductsForListing } from '../utils/productVariants';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 import {
   SlidersHorizontal,
   ArrowUpDown,
@@ -378,7 +379,11 @@ export const Catalogue: React.FC = () => {
           {/* 1. Mobile Subcategories Feed (Vertical Stack - md:hidden) */}
           <div className="w-full space-y-0 md:hidden">
             {activeSubcategories.map((sub, idx) => {
-              const imageUrl = getSubcategoryImage(sub.slug, sub.name, sub.bannerUrl || sub.imageUrl);
+              const rawSubImage = sub.imageUrl || sub.bannerUrl;
+              const imageUrl = getCacheBustedUrl(
+                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
+                currentCategory?.updatedAt
+              );
               return (
                 <div
                   key={`mobile-${sub.id}`}
@@ -431,7 +436,11 @@ export const Catalogue: React.FC = () => {
             }}
           >
             {activeSubcategories.map((sub, idx) => {
-              const imageUrl = getSubcategoryImage(sub.slug, sub.name, sub.bannerUrl || sub.imageUrl);
+              const rawSubImage = sub.imageUrl || sub.bannerUrl;
+              const imageUrl = getCacheBustedUrl(
+                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
+                currentCategory?.updatedAt
+              );
               return (
                 <div
                   key={`desktop-${sub.id}`}

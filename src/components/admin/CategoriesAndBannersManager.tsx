@@ -289,6 +289,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     const cleanSlug = (subSlugInput.trim() || cleanName.toLowerCase().replace(/\s+/g, '-')).replace(/[^a-z0-9-]/g, '');
 
     const currentSubs = Array.isArray(subModalTargetCat.subcategories) ? [...subModalTargetCat.subcategories] : [];
+    const finalImage = subImageInput.trim();
+    const finalBanner = subBannerInput.trim() || finalImage;
 
     if (editingSubcategory) {
       // Update existing subcategory
@@ -298,8 +300,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
               ...s,
               name: cleanName,
               slug: cleanSlug,
-              imageUrl: subImageInput.trim(),
-              bannerUrl: subBannerInput.trim(),
+              imageUrl: finalImage,
+              bannerUrl: finalBanner,
             }
           : s
       );
@@ -311,8 +313,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
         id: `sub-${Date.now()}`,
         name: cleanName,
         slug: cleanSlug,
-        imageUrl: subImageInput.trim(),
-        bannerUrl: subBannerInput.trim(),
+        imageUrl: finalImage,
+        bannerUrl: finalBanner,
       };
       updateCategory(subModalTargetCat.id, { subcategories: [...currentSubs, newSub] });
       showStatus(`Subcategory "${cleanName}" added successfully! ✅`);
