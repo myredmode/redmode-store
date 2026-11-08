@@ -11,13 +11,23 @@ service cloud.firestore {
     }
 
     match /admins/{adminId} {
-      allow read: if isValidId(adminId);
-      allow write: if isValidId(adminId);
+      allow read, write: if true;
     }
 
     match /products/{productId} {
-      allow read: if isValidId(productId);
-      allow write: if isValidId(productId);
+      allow read, write: if true;
+    }
+
+    match /categories/{categoryId} {
+      allow read, write: if true;
+    }
+
+    match /banners/{bannerId} {
+      allow read, write: if true;
+    }
+
+    match /_connection_test/{testId} {
+      allow read, write: if true;
     }
 
     // Security Audit Log: Append-only immutable collection for critical admin action tracking

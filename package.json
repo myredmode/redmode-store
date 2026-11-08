@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && cp dist/index.html dist/404.html && cp dist/index.html public/404.html && node scripts/bundle-zip.js",
+    "build": "vite build && cp dist/index.html dist/404.html && cp dist/index.html public/404.html",
+    "bundle-zip": "node scripts/bundle-zip.js",
     "gcp-build": "npm run build",
     "start": "node server.ts",
     "preview": "vite preview",

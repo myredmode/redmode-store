@@ -72,17 +72,20 @@ export const HomeView: React.FC = () => {
       tabIndex={0}
       aria-label={`Explore ${cat.name} Collection`}
     >
-      {/* High-Resolution Luxury Fashion Photo (Preserves Full Portrait Model) */}
-      <img
-        src={
-          cat.imageUrl ||
-          cat.bannerUrl ||
-          'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85'
-        }
-        alt={cat.name}
-        className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-        loading="eager"
-      />
+      {cat.imageUrl || cat.bannerUrl ? (
+        <img
+          src={cat.imageUrl || cat.bannerUrl}
+          alt={cat.name}
+          className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
+          loading="eager"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-zinc-900 to-black text-white p-6 text-center">
+          <img src="/assets/redmode-official-emblem.png" alt="REDMODE" className="w-14 h-14 opacity-50 mb-4 object-contain" />
+          <span className="text-xs font-semibold tracking-[0.25em] uppercase text-zinc-400">REDMODE COLLECTION</span>
+          <span className="text-lg font-bold tracking-wider uppercase text-white mt-1">{cat.name}</span>
+        </div>
+      )}
 
       {/* Subtle Vignette Gradient for Legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent pointer-events-none group-hover:from-black/90 transition-all duration-300" />
@@ -126,17 +129,20 @@ export const HomeView: React.FC = () => {
             tabIndex={0}
             aria-label={`Explore ${cat.name} Collection`}
           >
-            {/* High-Resolution Luxury Fashion Photo */}
-            <img
-              src={
-                cat.imageUrl ||
-                cat.bannerUrl ||
-                'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85'
-              }
-              alt={cat.name}
-              className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-105"
-              loading={idx === 0 ? 'eager' : 'lazy'}
-            />
+            {cat.imageUrl || cat.bannerUrl ? (
+              <img
+                src={cat.imageUrl || cat.bannerUrl}
+                alt={cat.name}
+                className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-105"
+                loading={idx === 0 ? 'eager' : 'lazy'}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-zinc-900 to-black text-white p-6 text-center">
+                <img src="/assets/redmode-official-emblem.png" alt="REDMODE" className="w-16 h-16 opacity-50 mb-4 object-contain" />
+                <span className="text-xs font-semibold tracking-[0.25em] uppercase text-zinc-400">REDMODE COLLECTION</span>
+                <span className="text-2xl font-bold tracking-wider uppercase text-white mt-1">{cat.name}</span>
+              </div>
+            )}
 
             {/* Subtle Vignette Gradient for Editorial Mood & Legibility */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />

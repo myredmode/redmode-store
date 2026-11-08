@@ -23,7 +23,15 @@ const DEFAULT_RAZORPAY_KEY_SECRET = 'Asrb0WLHUFBi3iEU3FK1DfiN';
 async function startServer() {
   const app = express();
   
-  let PORT = Number(process.env.PORT) || 3000;
+  // In AI Studio / Cloud Run container environment:
+  // Nginx listens externally on port 8080 and reverse-proxies to http://localhost:3000.
+  // When Cloud Run sets PORT=8080, binding to 8080 triggers EADDRINUSE and crashes the deployment.
+  // Thus, the Node application MUST always bind to port 3000 unless a non-8080 PORT or CLI --port is passed.
+  let PORT = 3000;
+  if (process.env.PORT && process.env.PORT !== '8080') {
+    const parsed = Number(process.env.PORT);
+    if (!isNaN(parsed) && parsed > 0) PORT = parsed;
+  }
   for (let i = 0; i < process.argv.length; i++) {
     if (process.argv[i] === '--port' && process.argv[i + 1]) {
       const parsed = parseInt(process.argv[i + 1], 10);

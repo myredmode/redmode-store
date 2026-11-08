@@ -9,4 +9,4 @@ coverage/
 .aistudio/
 .netlify/
 tmp/
-
+*.zip

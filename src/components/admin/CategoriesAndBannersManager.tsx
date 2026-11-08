@@ -23,6 +23,8 @@ import {
   ChevronRight,
   ExternalLink,
   AlertTriangle,
+  Cloud,
+  Loader2,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { Category, Subcategory, HeroBanner, MenuHighlightItem } from '../../types';
@@ -42,6 +44,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     updateCategory,
     deleteCategory,
     reorderCategories,
+    syncCategoriesToCloud,
     addSubcategory,
     deleteSubcategory,
     banners,
@@ -99,6 +102,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
   const [catBannerInput, setCatBannerInput] = useState('');
   const [catTaglineInput, setCatTaglineInput] = useState('');
   const [catShowOnHome, setCatShowOnHome] = useState(true);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
 
   // Subcategory Edit / Create Modal state
   const [subModalTargetCat, setSubModalTargetCat] = useState<Category | null>(null);
@@ -178,7 +182,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     setIsCreatingCategory(false);
   };
 
-  const handleSaveCategory = (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = catNameInput.trim();
     if (!cleanName) {
@@ -187,33 +191,41 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     }
     const cleanSlug = (catSlugInput.trim() || cleanName.toLowerCase().replace(/\s+/g, '-')).replace(/[^a-z0-9-]/g, '');
 
-    if (isCreatingCategory) {
-      const newCategory: Category = {
-        id: `cat-${Date.now()}`,
-        name: cleanName,
-        slug: cleanSlug,
-        order: categories.length + 1,
-        imageUrl: catImageInput.trim(),
-        bannerUrl: catBannerInput.trim(),
-        tagline: catTaglineInput.trim(),
-        showOnHome: catShowOnHome,
-        subcategories: [],
-      };
-      addCategory(cleanName, newCategory);
-      setIsCreatingCategory(false);
-      showStatus(`Category "${cleanName}" created successfully! ✅`);
-    } else if (editingCategory) {
-      const updatedImg = catImageInput.trim();
-      updateCategory(editingCategory.id, {
-        name: cleanName,
-        slug: cleanSlug,
-        imageUrl: updatedImg,
-        bannerUrl: updatedImg || catBannerInput.trim(),
-        tagline: catTaglineInput.trim(),
-        showOnHome: catShowOnHome,
-      });
-      setEditingCategory(null);
-      showStatus(`Category "${cleanName}" updated successfully! ✅`);
+    setIsSavingCategory(true);
+    try {
+      if (isCreatingCategory) {
+        const newCategory: Category = {
+          id: `cat-${Date.now()}`,
+          name: cleanName,
+          slug: cleanSlug,
+          order: categories.length + 1,
+          imageUrl: catImageInput.trim(),
+          bannerUrl: catBannerInput.trim() || catImageInput.trim(),
+          tagline: catTaglineInput.trim(),
+          showOnHome: catShowOnHome,
+          subcategories: [],
+        };
+        await addCategory(cleanName, newCategory);
+        setIsCreatingCategory(false);
+        showStatus(`Category "${cleanName}" created and synced to Cloud! ☁️✅`);
+      } else if (editingCategory) {
+        const updatedImg = catImageInput.trim();
+        await updateCategory(editingCategory.id, {
+          name: cleanName,
+          slug: cleanSlug,
+          imageUrl: updatedImg,
+          bannerUrl: updatedImg || catBannerInput.trim(),
+          tagline: catTaglineInput.trim(),
+          showOnHome: catShowOnHome,
+        });
+        setEditingCategory(null);
+        showStatus(`Category "${cleanName}" photo saved & live on all devices! ☁️✅`);
+      }
+    } catch (err) {
+      console.error('Failed to save category:', err);
+      showStatus('Failed to save category. Please try again.', 'error');
+    } finally {
+      setIsSavingCategory(false);
     }
   };
 
@@ -229,7 +241,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
   const sortedCategories = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   // Reorder Category Up/Down
-  const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
+  const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= sortedCategories.length) return;
 
@@ -238,9 +250,9 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     reordered[index] = reordered[targetIdx];
     reordered[targetIdx] = temp;
 
-    // Persist new sequence atomically across state, localStorage, and IndexedDB
-    reorderCategories(reordered);
-    showStatus('Category sequence updated! ✅');
+    // Persist new sequence atomically across state, localStorage, IndexedDB, and Cloud Firestore
+    await reorderCategories(reordered);
+    showStatus('Category sequence updated & synced to Cloud! ✅');
   };
 
   // -------------------------------------------------------------
@@ -541,14 +553,33 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
         {/* Action Buttons depending on active tab */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {activeTab === 'categories' && (
-            <button
-              type="button"
-              onClick={openCreateCategory}
-              className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Category</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  showStatus('Syncing categories to Cloud across all devices...', 'success');
+                  const res = await syncCategoriesToCloud();
+                  if (res.success) {
+                    showStatus(`All ${res.count} categories synced to Cloud & mobile! ☁️✅`, 'success');
+                  } else {
+                    showStatus('Sync encountered an issue.', 'error');
+                  }
+                }}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                title="Push current categories to cloud for mobile and visitors"
+              >
+                <Cloud className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden sm:inline">Sync to Cloud</span>
+              </button>
+              <button
+                type="button"
+                onClick={openCreateCategory}
+                className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Category</span>
+              </button>
+            </div>
           )}
           {activeTab === 'banners' && (
             <button
@@ -656,17 +687,23 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                   <div className="flex items-center gap-4">
                     {/* Category Photo Thumbnail with clean preview overlay */}
                     <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200 group">
-                      <img
-                        src={
-                          cat.imageUrl ||
-                          'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=80'
-                        }
-                        alt={cat.name}
-                        className="w-full h-full object-cover object-top transition duration-200 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
-                        <Eye className="w-4 h-4 text-white" />
-                      </div>
+                      {cat.imageUrl ? (
+                        <img
+                          src={cat.imageUrl}
+                          alt={cat.name}
+                          className="w-full h-full object-cover object-top transition duration-200 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 bg-zinc-50 p-1 text-center">
+                          <ImageIcon className="w-5 h-5 opacity-40 mb-1" />
+                          <span className="text-[9px] font-medium leading-tight">No photo</span>
+                        </div>
+                      )}
+                      {cat.imageUrl && (
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
+                          <Eye className="w-4 h-4 text-white" />
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1">
@@ -1333,10 +1370,20 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
               <button
                 type="submit"
                 form="category-fullpage-form"
-                className="px-5 py-2 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer"
+                disabled={isSavingCategory}
+                className="px-5 py-2 bg-black hover:bg-zinc-800 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer"
               >
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span>{isCreatingCategory ? 'Save & Create Category' : 'Save Changes'}</span>
+                {isSavingCategory ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Saving to Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>{isCreatingCategory ? 'Save & Create Category' : 'Save Changes'}</span>
+                  </>
+                )}
               </button>
             </div>
           </header>
@@ -1512,10 +1559,20 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-2.5 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-sm cursor-pointer"
+                      disabled={isSavingCategory}
+                      className="px-6 py-2.5 bg-black hover:bg-zinc-800 disabled:bg-zinc-400 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-sm cursor-pointer"
                     >
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>{isCreatingCategory ? 'Save & Create Category' : 'Save Changes'}</span>
+                      {isSavingCategory ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Saving to Cloud...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          <span>{isCreatingCategory ? 'Save & Create Category' : 'Save Changes'}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

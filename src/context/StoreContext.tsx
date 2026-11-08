@@ -43,7 +43,7 @@ import { calculateOrderParcel, sanitizeOrderForCustomer } from '../utils/packagi
 import { logAdminActivity } from '../utils/activityLogger';
 import { idbGet, idbSet } from '../utils/indexedDb';
 import { db } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { recordFirestoreAuditLog } from '../utils/auditLogger';
 
 function cleanForFirestore(obj: any): any {
@@ -246,12 +246,13 @@ interface StoreContextType {
   deleteProduct: (id: string) => void;
   togglePublishProduct: (id: string) => void;
 
-  addCategory: (nameOrCategory: string | Partial<Category>, categoryData?: Partial<Category>) => void;
-  updateCategory: (categoryOrId: Category | string, partialData?: Partial<Category>) => void;
+  addCategory: (nameOrCategory: string | Partial<Category>, categoryData?: Partial<Category>) => Promise<boolean> | void;
+  updateCategory: (categoryOrId: Category | string, partialData?: Partial<Category>) => Promise<boolean> | void;
   deleteCategory: (id: string) => void;
-  reorderCategories: (newOrderedCategories: Category[]) => void;
+  reorderCategories: (newOrderedCategories: Category[]) => Promise<boolean> | void;
   addSubcategory: (categoryId: string, subcategory: Omit<Subcategory, 'id'> | Subcategory) => void;
   deleteSubcategory: (categoryId: string, subcategoryId: string) => void;
+  syncCategoriesToCloud: () => Promise<{ success: boolean; count: number }>;
 
   addBanner: (banner: Omit<HeroBanner, 'id'>) => void;
   updateBanner: (banner: HeroBanner) => void;
@@ -1156,69 +1157,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           let loadedCategories: Category[] = parsed
             .filter((c: Partial<Category>) => c && c.slug && !legacySubcategorySlugs.has(c.slug.toLowerCase()))
-            .map((c: Partial<Category>) => ({
-              ...c,
-              subcategories: Array.isArray(c.subcategories) ? c.subcategories : [],
-            })) as Category[];
+            .map((c: Partial<Category>) => {
+              const catObj = {
+                ...c,
+                subcategories: Array.isArray(c.subcategories) ? c.subcategories : [],
+              } as Category;
+              // Clean any stale /assets/categories/ references
+              if (catObj.imageUrl && catObj.imageUrl.startsWith('/assets/categories/')) {
+                const initMatch = INITIAL_CATEGORIES.find((ic) => ic.id === catObj.id || ic.slug === catObj.slug);
+                catObj.imageUrl = initMatch?.imageUrl || '';
+                catObj.bannerUrl = initMatch?.bannerUrl || '';
+              }
+              return catObj;
+            });
 
-          // Ensure Kurti category has subcategories if missing, but NEVER overwrite user-saved images
+          // Ensure essential category subcategories exist if missing
           const kurtiCat = loadedCategories.find(
             (c) => c.slug === 'kurti' || c.name.toLowerCase() === 'kurti'
           );
-          if (kurtiCat) {
-            if (!kurtiCat.subcategories || kurtiCat.subcategories.length === 0) {
-              kurtiCat.subcategories = INITIAL_CATEGORIES[0].subcategories;
-            }
-            if (!kurtiCat.imageUrl) {
-              kurtiCat.imageUrl = INITIAL_CATEGORIES[0].imageUrl;
-            }
-            if (!kurtiCat.bannerUrl) {
-              kurtiCat.bannerUrl = kurtiCat.imageUrl || INITIAL_CATEGORIES[0].bannerUrl;
-            }
+          if (kurtiCat && (!kurtiCat.subcategories || kurtiCat.subcategories.length === 0)) {
+            kurtiCat.subcategories = INITIAL_CATEGORIES[0].subcategories;
           }
 
-          // Ensure Trouser category has subcategories if missing, but NEVER overwrite user-saved images
           const trouserCat = loadedCategories.find(
             (c) => c.slug === 'trouser' || c.slug === 'bottom' || c.name.toLowerCase() === 'trouser'
           );
-          if (trouserCat) {
-            if (!trouserCat.subcategories || trouserCat.subcategories.length === 0) {
-              trouserCat.subcategories = INITIAL_CATEGORIES[1].subcategories;
-            }
-            if (!trouserCat.imageUrl) {
-              trouserCat.imageUrl = INITIAL_CATEGORIES[1].imageUrl;
-            }
-            if (!trouserCat.bannerUrl) {
-              trouserCat.bannerUrl = trouserCat.imageUrl || INITIAL_CATEGORIES[1].bannerUrl;
-            }
-          }
-
-          // Ensure Kurti Sets category
-          const kurtiSetCat = loadedCategories.find(
-            (c) => c.slug === 'kurti-set' || c.name.toLowerCase().includes('kurti set')
-          );
-          if (kurtiSetCat) {
-            if (!kurtiSetCat.subcategories) kurtiSetCat.subcategories = [];
-            if (!kurtiSetCat.imageUrl) {
-              kurtiSetCat.imageUrl = INITIAL_CATEGORIES[2].imageUrl;
-            }
-            if (!kurtiSetCat.bannerUrl) {
-              kurtiSetCat.bannerUrl = kurtiSetCat.imageUrl || INITIAL_CATEGORIES[2].bannerUrl;
-            }
-          }
-
-          // Ensure Jewellery category
-          const jewelleryCat = loadedCategories.find(
-            (c) => c.slug === 'jewellery' || c.slug === 'jewelry' || c.name.toLowerCase().includes('jewel')
-          );
-          if (jewelleryCat) {
-            if (!jewelleryCat.subcategories) jewelleryCat.subcategories = [];
-            if (!jewelleryCat.imageUrl) {
-              jewelleryCat.imageUrl = INITIAL_CATEGORIES[3].imageUrl;
-            }
-            if (!jewelleryCat.bannerUrl) {
-              jewelleryCat.bannerUrl = jewelleryCat.imageUrl || INITIAL_CATEGORIES[3].bannerUrl;
-            }
+          if (trouserCat && (!trouserCat.subcategories || trouserCat.subcategories.length === 0)) {
+            trouserCat.subcategories = INITIAL_CATEGORIES[1].subcategories;
           }
 
           // Ensure other essential categories exist in loaded list
@@ -1520,6 +1485,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Failed saving categories to IndexedDB:', err);
     });
   }, [categories]);
+
+  // Real-time Cloud Firestore Synchronization for Categories across all devices & browsers
+  useEffect(() => {
+    let isCancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = onSnapshot(
+        collection(db, 'categories'),
+        (snap) => {
+          if (!snap.empty && !isCancelled) {
+            const fsCategories: Category[] = [];
+            snap.forEach((d) => {
+              const data = d.data();
+              if (data && data.id) {
+                const cat = { ...(data as Category) };
+                // Clean any legacy /assets/categories/ paths
+                if (cat.imageUrl && cat.imageUrl.startsWith('/assets/categories/')) {
+                  const initMatch = INITIAL_CATEGORIES.find((ic) => ic.id === cat.id || ic.slug === cat.slug);
+                  cat.imageUrl = initMatch?.imageUrl || '';
+                  cat.bannerUrl = initMatch?.bannerUrl || '';
+                }
+                fsCategories.push(cat);
+              }
+            });
+
+            if (fsCategories.length > 0) {
+              fsCategories.sort((a, b) => (a.order || 0) - (b.order || 0));
+              setCategories(fsCategories);
+              try {
+                localStorage.setItem('redmode_categories', JSON.stringify(fsCategories));
+              } catch {}
+              idbSet('redmode_categories_v2', fsCategories).catch(() => {});
+            }
+          }
+        },
+        (err) => {
+          console.debug('Firestore categories onSnapshot listener offline/skipped:', err);
+        }
+      );
+    } catch (err) {
+      console.debug('Failed to initialize categories onSnapshot:', err);
+    }
+
+    return () => {
+      isCancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  const syncCategoriesToCloud = async (): Promise<{ success: boolean; count: number }> => {
+    try {
+      let count = 0;
+      for (const cat of categories) {
+        await setDoc(doc(db, 'categories', cat.id), cleanForFirestore(cat), { merge: true });
+        count++;
+      }
+      return { success: true, count };
+    } catch (e) {
+      console.error('Failed to sync categories to cloud:', e);
+      return { success: false, count: 0 };
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('redmode_banners', JSON.stringify(banners));
@@ -2277,11 +2305,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, published: !p.published } : p)));
   };
 
-  const addCategory = (nameOrCat: string | Partial<Category>, categoryData?: Partial<Category>) => {
+  const addCategory = async (nameOrCat: string | Partial<Category>, categoryData?: Partial<Category>): Promise<boolean> => {
+    let newCat: Category;
     if (typeof nameOrCat === 'object') {
       const name = nameOrCat.name || 'New Category';
       const slug = (nameOrCat.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/[^a-z0-9-]/g, '');
-      const newCat: Category = {
+      newCat = {
         id: nameOrCat.id || `cat-${Date.now()}`,
         name,
         slug,
@@ -2293,11 +2322,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         subcategories: Array.isArray(nameOrCat.subcategories) ? nameOrCat.subcategories : [],
         ...nameOrCat,
       };
-      setCategories((prev) => [...prev, newCat]);
     } else {
       const name = nameOrCat;
       const slug = (categoryData?.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/[^a-z0-9-]/g, '');
-      const newCat: Category = {
+      newCat = {
         id: categoryData?.id || `cat-${Date.now()}`,
         name,
         slug,
@@ -2309,51 +2337,81 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         subcategories: Array.isArray(categoryData?.subcategories) ? categoryData.subcategories : [],
         ...categoryData,
       };
-      setCategories((prev) => [...prev, newCat]);
+    }
+
+    setCategories((prev) => {
+      const next = [...prev, newCat];
+      try {
+        localStorage.setItem('redmode_categories', JSON.stringify(next));
+      } catch (e) {}
+      idbSet('redmode_categories_v2', next).catch(() => {});
+      return next;
+    });
+
+    try {
+      await setDoc(doc(db, 'categories', newCat.id), cleanForFirestore(newCat), { merge: true });
+      return true;
+    } catch (e) {
+      console.error('Failed to write new category to Firestore:', e);
+      return false;
     }
   };
 
-  const updateCategory = (categoryOrId: Category | string, partialData?: Partial<Category>) => {
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (typeof categoryOrId === 'string') {
-          if (c.id === categoryOrId) {
-            return {
-              ...c,
-              ...partialData,
-              subcategories:
-                partialData?.subcategories !== undefined
-                  ? Array.isArray(partialData.subcategories)
-                    ? partialData.subcategories
-                    : []
-                  : Array.isArray(c.subcategories)
-                  ? c.subcategories
-                  : [],
-            };
-          }
-          return c;
-        } else {
-          if (c.id === categoryOrId.id) {
-            return {
-              ...categoryOrId,
-              subcategories: Array.isArray(categoryOrId.subcategories)
-                ? categoryOrId.subcategories
-                : Array.isArray(c.subcategories)
-                ? c.subcategories
+  const updateCategory = async (categoryOrId: Category | string, partialData?: Partial<Category>): Promise<boolean> => {
+    const targetId = typeof categoryOrId === 'string' ? categoryOrId : categoryOrId.id;
+    const existing = categories.find((c) => c.id === targetId);
+
+    const merged: Category =
+      typeof categoryOrId === 'string'
+        ? {
+            ...(existing || { id: targetId, name: '', slug: targetId, order: 1, subcategories: [] }),
+            ...partialData,
+            subcategories:
+              partialData?.subcategories !== undefined
+                ? Array.isArray(partialData.subcategories)
+                  ? partialData.subcategories
+                  : []
+                : Array.isArray(existing?.subcategories)
+                ? existing.subcategories
                 : [],
-            };
           }
-          return c;
-        }
-      })
-    );
+        : {
+            ...categoryOrId,
+            subcategories: Array.isArray(categoryOrId.subcategories)
+              ? categoryOrId.subcategories
+              : Array.isArray(existing?.subcategories)
+              ? existing.subcategories
+              : [],
+          };
+
+    // Update state synchronously for the UI
+    setCategories((prev) => {
+      const exists = prev.some((c) => c.id === targetId);
+      const next = exists ? prev.map((c) => (c.id === targetId ? merged : c)) : [...prev, merged];
+      try {
+        localStorage.setItem('redmode_categories', JSON.stringify(next));
+      } catch (e) {}
+      idbSet('redmode_categories_v2', next).catch(() => {});
+      return next;
+    });
+
+    // Write definitively to Cloud Firestore
+    try {
+      await setDoc(doc(db, 'categories', targetId), cleanForFirestore(merged), { merge: true });
+      console.log(`[Firestore] Category ${targetId} successfully synced to cloud.`);
+      return true;
+    } catch (err) {
+      console.error('Firestore category update error:', err);
+      return false;
+    }
   };
 
   const deleteCategory = (id: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== id));
+    deleteDoc(doc(db, 'categories', id)).catch(() => {});
   };
 
-  const reorderCategories = (newOrderedCategories: Category[]) => {
+  const reorderCategories = async (newOrderedCategories: Category[]): Promise<boolean> => {
     const updated = newOrderedCategories.map((cat, idx) => ({
       ...cat,
       order: idx + 1,
@@ -2365,6 +2423,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('localStorage save warning on reorder:', err);
     }
     idbSet('redmode_categories_v2', updated).catch(() => {});
+
+    try {
+      await Promise.all(
+        updated.map((cat) =>
+          setDoc(doc(db, 'categories', cat.id), cleanForFirestore(cat), { merge: true })
+        )
+      );
+      console.log('[Firestore] Reordered categories synced to cloud.');
+      return true;
+    } catch (err) {
+      console.error('Firestore reorder categories sync error:', err);
+      return false;
+    }
   };
 
   const addSubcategory = (categoryId: string, subcategory: Omit<Subcategory, 'id'> | Subcategory) => {
@@ -2376,8 +2447,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       bannerUrl: subcategory.bannerUrl || '',
       description: subcategory.description || '',
     };
-    setCategories((prev) =>
-      prev.map((c) => {
+    setCategories((prev) => {
+      const next = prev.map((c) => {
         if (c.id === categoryId) {
           const currentSubs = Array.isArray(c.subcategories) ? c.subcategories : [];
           return {
@@ -2386,13 +2457,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
         }
         return c;
-      })
-    );
+      });
+
+      const updatedCat = next.find((c) => c.id === categoryId);
+      if (updatedCat) {
+        setDoc(doc(db, 'categories', categoryId), cleanForFirestore(updatedCat)).catch(() => {});
+      }
+
+      return next;
+    });
   };
 
   const deleteSubcategory = (categoryId: string, subcategoryId: string) => {
-    setCategories((prev) =>
-      prev.map((c) => {
+    setCategories((prev) => {
+      const next = prev.map((c) => {
         if (c.id === categoryId) {
           const currentSubs = Array.isArray(c.subcategories) ? c.subcategories : [];
           return {
@@ -2401,8 +2479,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
         }
         return c;
-      })
-    );
+      });
+
+      const updatedCat = next.find((c) => c.id === categoryId);
+      if (updatedCat) {
+        setDoc(doc(db, 'categories', categoryId), cleanForFirestore(updatedCat)).catch(() => {});
+      }
+
+      return next;
+    });
   };
 
   const addBanner = (bannerData: Omit<HeroBanner, 'id'>) => {
@@ -4394,6 +4479,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateCategory,
         deleteCategory,
         reorderCategories,
+        syncCategoriesToCloud,
         addSubcategory,
         deleteSubcategory,
         addBanner,
