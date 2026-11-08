@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
+import { getCacheBustedUrl } from '../utils/cacheBuster';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 
 export const HeroSlider: React.FC = () => {
@@ -62,7 +63,7 @@ export const HeroSlider: React.FC = () => {
             >
               {/* Background Image with Dark Vignette for Sharp Contrast */}
               <img
-                src={banner.imageUrl}
+                src={getCacheBustedUrl(banner.imageUrl)}
                 alt={banner.title}
                 className="w-full h-full object-cover object-center"
               />

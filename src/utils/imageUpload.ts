@@ -5,6 +5,8 @@
  * across reloads on both server (local/Express) and client (Vercel SPA / IndexedDB / Firestore).
  */
 
+import { appendVersionToImageUrl } from './cacheBuster';
+
 export async function compressImage(
   file: File,
   maxWidth = 960,
@@ -77,7 +79,7 @@ export async function uploadImageFile(file: File): Promise<string> {
       if (response.ok && contentType.includes('application/json')) {
         const data = await response.json();
         if (data.success && data.url) {
-          return data.url;
+          return appendVersionToImageUrl(data.url);
         }
       }
     } catch {
