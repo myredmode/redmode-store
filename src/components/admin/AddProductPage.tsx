@@ -1817,145 +1817,130 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
           {/* RIGHT COLUMN: MEDIA, CATEGORY, STOREFRONT (~33% width) */}
           {/* ========================================================= */}
           <div className="lg:col-span-4 space-y-6">
-            {/* 1. PRODUCT MEDIA CARD (Upload Img) */}
+            {/* 1. PRODUCT MEDIA CARD (Clean, uncluttered photo upload) */}
             <section className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Product Photos</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    For Variety: <span className="font-semibold text-slate-700">{activeColor?.name || 'Default'}</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="Upload photos from computer or phone"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Upload Photos</span>
-                </button>
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="text-base font-bold text-slate-900">Product Photos</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Color / Variety: <span className="font-semibold text-slate-700">{activeColor?.name || 'Default'}</span>
+                </p>
               </div>
 
-              {/* Color Switcher for Images if multiple colors exist */}
+              {/* Color Switcher if multiple colors exist */}
               {colors.length > 1 && (
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Select Variety to Manage Photos:</span>
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                    {colors.map((c, i) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setActiveColorIndex(i)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition shrink-0 cursor-pointer ${
-                          activeColorIndex === i
-                            ? 'bg-slate-900 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: c.hex }} />
-                        <span>{c.name}</span>
-                        <span className="text-[10px] opacity-70">({c.galleryImages?.length || 0})</span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {colors.map((c, i) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setActiveColorIndex(i)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition shrink-0 cursor-pointer ${
+                        activeColorIndex === i
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: c.hex }} />
+                      <span>{c.name}</span>
+                      <span className="text-[10px] opacity-70">({c.galleryImages?.length || 0})</span>
+                    </button>
+                  ))}
                 </div>
               )}
 
-              {/* Large Main Product Image Preview / Dropzone */}
+              {/* Large Image Area / Simple File Dropzone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="relative aspect-square w-full rounded-2xl bg-slate-50 border-2 border-dashed border-slate-300 hover:border-slate-900 overflow-hidden flex items-center justify-center group cursor-pointer transition shadow-2xs"
-                title="Click to upload or change photo from your device"
+                className="relative aspect-square w-full rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 hover:border-slate-400 overflow-hidden flex items-center justify-center group cursor-pointer transition"
+                title="Click to upload photos"
               >
                 {activeColor?.primaryImage ? (
-                  <img
-                    src={activeColor.primaryImage}
-                    alt={name || 'Product Image'}
-                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 mb-2 group-hover:bg-slate-900 group-hover:text-white transition">
-                      <Upload className="w-6 h-6 stroke-1.5" />
+                  <>
+                    <img
+                      src={activeColor.primaryImage}
+                      alt={name || 'Product Image'}
+                      className="w-full h-full object-cover object-center"
+                    />
+                    {/* Subtle hover overlay only when image exists */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-3 py-1.5 rounded-xl bg-white/95 text-slate-900 text-xs font-bold shadow-md">
+                        Change Cover Photo
+                      </span>
                     </div>
-                    <p className="text-xs font-bold text-slate-700">Click to Upload Photos</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Direct upload from phone / PC (No URLs needed)</p>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mb-2.5 group-hover:scale-110 transition">
+                      <Upload className="w-5 h-5 stroke-2" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">Add Photos</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Select from computer or phone</p>
                   </div>
                 )}
-
-                {/* Quick overlay actions on hover */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-4 text-white">
-                  <Upload className="w-6 h-6" />
-                  <span className="text-xs font-bold">Click to Upload More Photos</span>
-                  <span className="text-[10px] text-slate-200">Select one or multiple photos</span>
-                </div>
 
                 {isUploadingImage && (
-                  <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex items-center justify-center">
-                    <span className="text-xs font-bold text-slate-900 animate-pulse">Uploading photos...</span>
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex items-center justify-center z-10">
+                    <span className="text-xs font-bold text-slate-900 animate-pulse">Uploading...</span>
                   </div>
                 )}
               </div>
 
-              {/* Small Image Thumbnails Row: [img][img][img][ + ] */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                  <span className="font-semibold text-slate-700">Photos for {activeColor?.name || 'this variety'} ({activeColor?.galleryImages?.length || 0})</span>
-                  <span className="text-emerald-700 font-semibold text-[10px]">Tap thumbnail to make MAIN cover</span>
-                </div>
-                <div className="flex items-center gap-2.5 overflow-x-auto py-1.5">
-                  {(activeColor?.galleryImages || []).map((imgUrl, thumbIdx) => {
-                    const isMain = activeColor.primaryImage === imgUrl;
-                    return (
-                      <div
-                        key={thumbIdx}
-                        className={`relative group/thumb w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 cursor-pointer transition shadow-2xs ${
-                          isMain
-                            ? 'border-emerald-600 ring-2 ring-emerald-500/40'
-                            : 'border-slate-200 hover:border-slate-400'
-                        }`}
-                        onClick={() => setPrimaryImageForActiveColor(imgUrl)}
-                        title="Click to set as Main Cover photo"
-                      >
-                        <img
-                          src={imgUrl}
-                          alt={`Thumbnail ${thumbIdx + 1}`}
-                          className="w-full h-full object-cover object-center"
-                        />
-                        {/* Delete thumbnail icon */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeImageFromActiveColor(imgUrl);
-                          }}
-                          className="absolute top-1 right-1 p-1 rounded-md bg-black/70 text-white hover:bg-rose-600 opacity-90 group-hover/thumb:opacity-100 transition shadow-xs"
-                          title="Remove Photo"
+              {/* Thumbnails Row: [img][img][ + ] */}
+              {(activeColor?.galleryImages?.length || 0) > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>{activeColor?.galleryImages?.length} {activeColor?.galleryImages?.length === 1 ? 'photo' : 'photos'}</span>
+                    <span className="text-emerald-600 font-medium">Click photo to set as cover</span>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {(activeColor?.galleryImages || []).map((imgUrl, thumbIdx) => {
+                      const isMain = activeColor.primaryImage === imgUrl;
+                      return (
+                        <div
+                          key={thumbIdx}
+                          className={`relative group/thumb w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 cursor-pointer transition ${
+                            isMain
+                              ? 'border-emerald-600 ring-2 ring-emerald-500/30'
+                              : 'border-slate-200 hover:border-slate-400'
+                          }`}
+                          onClick={() => setPrimaryImageForActiveColor(imgUrl)}
                         >
-                          <Trash2 className="w-2.5 h-2.5" />
-                        </button>
-                        {isMain && (
-                          <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-extrabold text-center py-0.5 leading-none tracking-wide">
-                            MAIN
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                          <img
+                            src={imgUrl}
+                            alt={`Thumbnail ${thumbIdx + 1}`}
+                            className="w-full h-full object-cover object-center"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImageFromActiveColor(imgUrl);
+                            }}
+                            className="absolute top-0.5 right-0.5 p-1 rounded-md bg-black/70 text-white hover:bg-rose-600 opacity-0 group-hover/thumb:opacity-100 transition"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                          {isMain && (
+                            <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] font-bold text-center py-0.5 leading-none">
+                              COVER
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                  {/* Direct '+' Tile: Triggers phone / PC file picker directly */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 hover:border-slate-900 hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center transition cursor-pointer shrink-0 gap-0.5"
-                    title="Add another photo from your device"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="text-[9px] font-bold">Add</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-300 hover:border-slate-600 text-slate-500 flex items-center justify-center transition cursor-pointer shrink-0"
+                      title="Add more photos"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
 
             {/* 2. CATEGORY CARD (Matching Reference Screenshot) */}
