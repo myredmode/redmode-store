@@ -683,18 +683,22 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
     showToast('All variant SKUs regenerated');
   };
 
-  // Active color gallery updates
+  // Active color gallery updates: 1-click set as main cover
   const setPrimaryImageForActiveColor = (imgUrl: string) => {
+    if (!imgUrl) return;
     setIsDirty(true);
     setColors((prev) =>
       prev.map((col, idx) => {
         if (idx !== activeColorIndex) return col;
+        const remaining = (col.galleryImages || []).filter((img) => img !== imgUrl);
         return {
           ...col,
           primaryImage: imgUrl,
+          galleryImages: [imgUrl, ...remaining],
         };
       })
     );
+    showToast('Cover photo set as main!');
   };
 
   const addImageToActiveColor = (imgUrl: string) => {
@@ -708,17 +712,15 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
         );
         const updatedGallery = currentGallery.includes(imgUrl)
           ? [imgUrl, ...currentGallery.filter((i) => i !== imgUrl)]
-          : [imgUrl, ...currentGallery];
+          : [...currentGallery, imgUrl];
         return {
           ...col,
           galleryImages: updatedGallery,
-          primaryImage: imgUrl, // The uploaded image becomes the primary image immediately!
+          primaryImage: col.primaryImage || imgUrl,
         };
       })
     );
-    setInputImageUrl('');
-    setShowImageModal(false);
-    showToast('Photo uploaded & set as primary cover image!');
+    showToast('Photo added!');
   };
 
   const removeImageFromActiveColor = (imgUrl: string) => {
@@ -737,9 +739,10 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
         };
       })
     );
+    showToast('Photo removed');
   };
 
-  // File Upload Handlers (Compresses & uploads to server for permanent persistence)
+  // Direct native File Upload Handler (Select multiple photos in one go, upload, & attach to active color)
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -748,18 +751,40 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
 
     setIsUploadingImage(true);
     try {
+      const uploadedUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const persistedUrl = await uploadImageFile(file);
         if (persistedUrl) {
-          addImageToActiveColor(persistedUrl);
+          uploadedUrls.push(persistedUrl);
           saveToLibrary(persistedUrl, file.name.replace(/\.[^/.]+$/, ''));
         }
       }
-      setToastMessage('Photos uploaded and saved permanently!');
-      setTimeout(() => setToastMessage(null), 3000);
+
+      if (uploadedUrls.length > 0) {
+        setIsDirty(true);
+        setColors((prev) =>
+          prev.map((col, idx) => {
+            if (idx !== activeColorIndex) return col;
+            const currentGallery = (col.galleryImages || []).filter(
+              (img) => !SAMPLE_CLOTHING_PRESETS.some((preset) => preset.url === img)
+            );
+            const combined = [...currentGallery];
+            uploadedUrls.forEach((u) => {
+              if (!combined.includes(u)) combined.push(u);
+            });
+            return {
+              ...col,
+              galleryImages: combined,
+              primaryImage: col.primaryImage || uploadedUrls[0] || combined[0] || '',
+            };
+          })
+        );
+        showToast(`${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''} uploaded successfully!`);
+      }
     } catch (err) {
-      console.error('Failed to upload image:', err);
+      console.error('Failed to upload images:', err);
+      showToast('Error uploading photos. Please retry.');
     } finally {
       setIsUploadingImage(false);
       e.target.value = '';
@@ -784,8 +809,9 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
       if (numericMrp < numericBasePrice) {
         validationErrors.mrp = 'MRP cannot be less than Selling Price.';
       }
-      if (!activeColor.primaryImage) {
-        validationErrors.media = 'Product primary image is required.';
+      const hasAnyPhoto = colors.some((c) => c.primaryImage || (c.galleryImages && c.galleryImages.length > 0));
+      if (!hasAnyPhoto) {
+        validationErrors.media = 'Please upload at least one product photo.';
       }
       if (duplicateSkus.length > 0) {
         validationErrors.sku = `SKU already exists: ${duplicateSkus.join(', ')}. Please use unique SKUs.`;
@@ -1795,44 +1821,53 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
             <section className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Upload Img</h2>
+                  <h2 className="text-base font-bold text-slate-900">Product Photos</h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    For: <span className="font-semibold text-slate-700">{activeColor?.name}</span>
+                    For Variety: <span className="font-semibold text-slate-700">{activeColor?.name || 'Default'}</span>
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
-                  title="Upload from computer"
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  title="Upload photos from computer or phone"
                 >
-                  <Upload className="w-4 h-4" />
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Photos</span>
                 </button>
               </div>
 
               {/* Color Switcher for Images if multiple colors exist */}
               {colors.length > 1 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {colors.map((c, i) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setActiveColorIndex(i)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition shrink-0 ${
-                        activeColorIndex === i
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.hex }} />
-                      <span>{c.name}</span>
-                    </button>
-                  ))}
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Select Variety to Manage Photos:</span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {colors.map((c, i) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setActiveColorIndex(i)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition shrink-0 cursor-pointer ${
+                          activeColorIndex === i
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: c.hex }} />
+                        <span>{c.name}</span>
+                        <span className="text-[10px] opacity-70">({c.galleryImages?.length || 0})</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Large Main Product Image Preview (Matching Reference Screenshot) */}
-              <div className="relative aspect-square w-full rounded-2xl bg-slate-50 border border-slate-200/80 overflow-hidden flex items-center justify-center group shadow-2xs">
+              {/* Large Main Product Image Preview / Dropzone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="relative aspect-square w-full rounded-2xl bg-slate-50 border-2 border-dashed border-slate-300 hover:border-slate-900 overflow-hidden flex items-center justify-center group cursor-pointer transition shadow-2xs"
+                title="Click to upload or change photo from your device"
+              >
                 {activeColor?.primaryImage ? (
                   <img
                     src={activeColor.primaryImage}
@@ -1841,49 +1876,47 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400">
-                    <ImageIcon className="w-10 h-10 stroke-1 mb-2 text-slate-300" />
-                    <p className="text-xs font-semibold text-slate-700">No Image Selected</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Upload or choose a photo</p>
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 mb-2 group-hover:bg-slate-900 group-hover:text-white transition">
+                      <Upload className="w-6 h-6 stroke-1.5" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700">Click to Upload Photos</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Direct upload from phone / PC (No URLs needed)</p>
                   </div>
                 )}
 
-                {/* Quick overlay actions */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-white/90 hover:bg-white text-slate-900 text-xs font-semibold shadow transition"
-                  >
-                    Change Photo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowImageModal(true)}
-                    className="px-3 py-1.5 rounded-lg bg-white/90 hover:bg-white text-slate-900 text-xs font-semibold shadow transition"
-                  >
-                    Presets / URL
-                  </button>
+                {/* Quick overlay actions on hover */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-4 text-white">
+                  <Upload className="w-6 h-6" />
+                  <span className="text-xs font-bold">Click to Upload More Photos</span>
+                  <span className="text-[10px] text-slate-200">Select one or multiple photos</span>
                 </div>
+
+                {isUploadingImage && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex items-center justify-center">
+                    <span className="text-xs font-bold text-slate-900 animate-pulse">Uploading photos...</span>
+                  </div>
+                )}
               </div>
 
-              {/* Small Image Thumbnails Row: [img][img][img][ + ] (From Reference Screenshot) */}
+              {/* Small Image Thumbnails Row: [img][img][img][ + ] */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                  <span>Colorway Gallery ({activeColor?.galleryImages?.length || 0})</span>
-                  <span>Click thumbnail to set as main</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                  <span className="font-semibold text-slate-700">Photos for {activeColor?.name || 'this variety'} ({activeColor?.galleryImages?.length || 0})</span>
+                  <span className="text-emerald-700 font-semibold text-[10px]">Tap thumbnail to make MAIN cover</span>
                 </div>
-                <div className="flex items-center gap-2.5 overflow-x-auto py-1">
+                <div className="flex items-center gap-2.5 overflow-x-auto py-1.5">
                   {(activeColor?.galleryImages || []).map((imgUrl, thumbIdx) => {
                     const isMain = activeColor.primaryImage === imgUrl;
                     return (
                       <div
                         key={thumbIdx}
-                        className={`relative group/thumb w-14 h-14 rounded-xl overflow-hidden border shrink-0 cursor-pointer transition ${
+                        className={`relative group/thumb w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 cursor-pointer transition shadow-2xs ${
                           isMain
-                            ? 'border-emerald-500 ring-2 ring-emerald-500/30'
+                            ? 'border-emerald-600 ring-2 ring-emerald-500/40'
                             : 'border-slate-200 hover:border-slate-400'
                         }`}
                         onClick={() => setPrimaryImageForActiveColor(imgUrl)}
+                        title="Click to set as Main Cover photo"
                       >
                         <img
                           src={imgUrl}
@@ -1891,21 +1924,19 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
                           className="w-full h-full object-cover object-center"
                         />
                         {/* Delete thumbnail icon */}
-                        {activeColor.galleryImages.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeImageFromActiveColor(imgUrl);
-                            }}
-                            className="absolute top-1 right-1 p-0.5 rounded-md bg-black/60 text-white hover:bg-rose-600 opacity-0 group-hover/thumb:opacity-100 transition"
-                            title="Delete Image"
-                          >
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeImageFromActiveColor(imgUrl);
+                          }}
+                          className="absolute top-1 right-1 p-1 rounded-md bg-black/70 text-white hover:bg-rose-600 opacity-90 group-hover/thumb:opacity-100 transition shadow-xs"
+                          title="Remove Photo"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
                         {isMain && (
-                          <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-bold text-center py-0.5 leading-none">
+                          <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-extrabold text-center py-0.5 leading-none tracking-wide">
                             MAIN
                           </span>
                         )}
@@ -1913,14 +1944,15 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
                     );
                   })}
 
-                  {/* The '+' Tile matching reference screenshot */}
+                  {/* Direct '+' Tile: Triggers phone / PC file picker directly */}
                   <button
                     type="button"
-                    onClick={() => setShowImageModal(true)}
-                    className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/30 text-emerald-600 flex items-center justify-center transition cursor-pointer shrink-0"
-                    title="Add another photo"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 hover:border-slate-900 hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center transition cursor-pointer shrink-0 gap-0.5"
+                    title="Add another photo from your device"
                   >
                     <Plus className="w-5 h-5" />
+                    <span className="text-[9px] font-bold">Add</span>
                   </button>
                 </div>
               </div>
@@ -2340,94 +2372,7 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
         </div>
       </main>
 
-      {/* ========================================================= */}
-      {/* MODAL: IMAGE PRESETS & URL INPUT */}
-      {/* ========================================================= */}
-      {showImageModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Add Product Image</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Select a RedMode clothing preset or paste an image URL.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowImageModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Custom URL Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">Image Web URL</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="https://images.unsplash.com/..."
-                  value={inputImageUrl}
-                  onChange={(e) => setInputImageUrl(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => addImageToActiveColor(inputImageUrl)}
-                  disabled={!inputImageUrl.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold disabled:opacity-40"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-
-            {/* Uploaded Photos Recommendation */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700">
-                  Your Uploaded Photos (Recommended)
-                </label>
-                {uploadedImages.length > 0 && (
-                  <span className="text-[10px] text-slate-400">{uploadedImages.length} saved</span>
-                )}
-              </div>
-              {uploadedImages.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
-                  {uploadedImages.map((sample) => (
-                    <div
-                      key={sample.id}
-                      onClick={() => addImageToActiveColor(sample.url)}
-                      className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-square cursor-pointer hover:border-emerald-500 hover:shadow-xs transition"
-                    >
-                      <img src={sample.url} alt={sample.label} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1 text-center transition">
-                        <span className="text-[10px] text-white font-semibold leading-tight">{sample.label}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-xl">
-                  No uploaded photos yet. Any photos you upload will be saved and recommended here.
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowImageModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================= */}
       {/* MODAL: ADD CATEGORY */}

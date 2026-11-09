@@ -59,6 +59,8 @@ import {
   FileText,
   Tag,
   Check,
+  CheckSquare,
+  Square,
   RotateCcw,
   Truck,
   Package,
@@ -506,10 +508,11 @@ export const AdminPanel: React.FC = () => {
   const [revenuePeriod, setRevenuePeriod] = useState<TimeInterval>('yearly');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Category selection in catalog
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState<string>('');
   const [catalogViewMode, setCatalogViewMode] = useState<'variants' | 'grouped'>('variants');
+  // Catalog Bulk Selection State (holds selected product IDs)
+  const [selectedCatalogProductIds, setSelectedCatalogProductIds] = useState<string[]>([]);
 
   // Product Add / Edit Dedicated Page State
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -2605,24 +2608,160 @@ export const AdminPanel: React.FC = () => {
                       })
                     : allVariants;
 
+                  const allDisplayedProductIds = Array.from(new Set(displayedVariants.map((v) => v.product.id)));
+                  const isAllSelected = allDisplayedProductIds.length > 0 && allDisplayedProductIds.every((id) => selectedCatalogProductIds.includes(id));
+                  const toggleSelectAll = () => {
+                    if (isAllSelected) {
+                      setSelectedCatalogProductIds((prev) => prev.filter((id) => !allDisplayedProductIds.includes(id)));
+                    } else {
+                      setSelectedCatalogProductIds((prev) => Array.from(new Set([...prev, ...allDisplayedProductIds])));
+                    }
+                  };
+
+                  const handleBulkDelete = () => {
+                    if (selectedCatalogProductIds.length === 0) return;
+                    const count = selectedCatalogProductIds.length;
+                    if (
+                      window.confirm(
+                        `Are you sure you want to permanently delete ${count} selected product${count > 1 ? 's' : ''}? This will immediately remove them from the store.`
+                      )
+                    ) {
+                      selectedCatalogProductIds.forEach((id) => {
+                        deleteProduct(id);
+                      });
+                      setSelectedCatalogProductIds([]);
+                    }
+                  };
+
+                  const handleBulkTag = (tagKey: 'isNewLaunch' | 'isBestseller' | 'isFestive', value: boolean) => {
+                    selectedCatalogProductIds.forEach((id) => {
+                      if (tagKey === 'isNewLaunch') {
+                        updateProduct(id, { isNewLaunch: value, isNewArrival: value });
+                      } else {
+                        updateProduct(id, { [tagKey]: value });
+                      }
+                    });
+                  };
+
+                  const handleBulkChangeCategory = (newCat: string) => {
+                    selectedCatalogProductIds.forEach((id) => {
+                      updateProduct(id, { category: newCat });
+                    });
+                    setSelectedCatalogProductIds([]);
+                  };
+
                   return (
                     <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
-                      <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-800">
-                            Showing {displayedVariants.length} Color Variation Listings
-                          </span>
-                          <span className="text-slate-400">across {filteredProducts.length} styles</span>
+                      {/* Bulk Selection Actions Bar when items are selected */}
+                      {selectedCatalogProductIds.length > 0 ? (
+                        <div className="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between flex-wrap gap-3 text-xs border-b border-slate-800">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                            <span className="font-bold">
+                              {selectedCatalogProductIds.length} {selectedCatalogProductIds.length === 1 ? 'Product' : 'Products'} Selected
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCatalogProductIds([])}
+                              className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer ml-1"
+                            >
+                              Deselect All
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Category Assign Dropdown */}
+                            <div className="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                              <span className="text-[10px] text-slate-400 font-medium">Move to:</span>
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleBulkChangeCategory(e.target.value);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                defaultValue=""
+                                className="bg-transparent text-white text-xs font-semibold outline-none cursor-pointer"
+                              >
+                                <option value="" disabled className="bg-slate-900 text-white">Select Category...</option>
+                                {categories.map((c) => (
+                                  <option key={c.id} value={c.name} className="bg-slate-900 text-white">{c.name}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Quick Bulk Tag Controls */}
+                            <button
+                              type="button"
+                              onClick={() => handleBulkTag('isNewLaunch', true)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1 border border-slate-700"
+                              title="Mark selected products as New Launch"
+                            >
+                              <span>✨ Launch</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleBulkTag('isBestseller', true)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1 border border-slate-700"
+                              title="Mark selected products as Bestseller"
+                            >
+                              <span>🔥 Best</span>
+                            </button>
+
+                            {/* Bulk Delete Button */}
+                            {currentAdminUser.role !== 'Label Admin' && (
+                              <button
+                                type="button"
+                                onClick={handleBulkDelete}
+                                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                title="Delete selected products permanently from store"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete ({selectedCatalogProductIds.length})</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-[11px] text-slate-400">
-                          Each color has independent photo, SKU, stock &amp; price
-                        </span>
-                      </div>
+                      ) : (
+                        <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-800">
+                              Showing {displayedVariants.length} Color Variation Listings
+                            </span>
+                            <span className="text-slate-400">across {filteredProducts.length} styles</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={toggleSelectAll}
+                              className="text-xs font-semibold text-slate-700 hover:text-black hover:underline cursor-pointer flex items-center gap-1.5"
+                            >
+                              <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Select All ({allDisplayedProductIds.length})</span>
+                            </button>
+                            <span className="text-[11px] text-slate-400 hidden sm:inline">
+                              Each color has independent photo, SKU, stock &amp; price
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs min-w-[760px]">
                           <thead className="bg-slate-50/90 border-b border-slate-100 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
                             <tr>
+                              <th className="py-3.5 px-3.5 w-12 text-center">
+                                <div className="flex items-center justify-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={toggleSelectAll}
+                                    className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer accent-slate-900"
+                                    title={isAllSelected ? "Deselect All" : "Select All Products"}
+                                  />
+                                </div>
+                              </th>
                               <th className="py-3.5 px-4">Product &amp; Color Listing</th>
                               <th className="py-3.5 px-4">Category</th>
                               <th className="py-3.5 px-4">Color Swatch</th>
@@ -2638,14 +2777,38 @@ export const AdminPanel: React.FC = () => {
                                 (a, b) => a + (Number(b) || 0),
                                 0
                               );
+                              const isSelected = selectedCatalogProductIds.includes(v.product.id);
 
                               return (
                                 <tr
                                   key={`${v.product.id}-${v.colorName}-${i}`}
                                   className={`hover:bg-slate-50/70 transition group ${
-                                    v.totalVariants > 1 && !v.isFirstVariant ? 'bg-slate-50/20' : ''
+                                    isSelected
+                                      ? 'bg-rose-50/30 font-medium'
+                                      : v.totalVariants > 1 && !v.isFirstVariant
+                                      ? 'bg-slate-50/20'
+                                      : ''
                                   }`}
                                 >
+                                  {/* Checkbox Single Select */}
+                                  <td className="py-3.5 px-3.5 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center justify-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          setSelectedCatalogProductIds((prev) =>
+                                            prev.includes(v.product.id)
+                                              ? prev.filter((id) => id !== v.product.id)
+                                              : [...prev, v.product.id]
+                                          );
+                                        }}
+                                        className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer accent-slate-900"
+                                        title={`Select ${v.product.name}`}
+                                      />
+                                    </div>
+                                  </td>
+
                                   {/* Photo & Name */}
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-3">
@@ -2859,16 +3022,16 @@ export const AdminPanel: React.FC = () => {
                                         <Edit2 className="w-3.5 h-3.5" />
                                         <span>Edit</span>
                                       </button>
-                                      {currentAdminUser.role === "Super Admin" && (
+                                      {currentAdminUser.role !== "Label Admin" && (
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            if (confirm(`Are you sure you want to delete style "${v.product.name}"?`)) {
+                                            if (confirm(`Are you sure you want to permanently delete style "${v.product.name}"? This cannot be undone.`)) {
                                               deleteProduct(v.product.id);
                                             }
                                           }}
                                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                          title="Delete Product (Super Admin)"
+                                          title="Delete Product"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -2886,12 +3049,151 @@ export const AdminPanel: React.FC = () => {
                 }
 
                 // If in Grouped Styles View:
+                const allDisplayedProductIds = filteredProducts.map((p) => p.id);
+                const isAllSelected = allDisplayedProductIds.length > 0 && allDisplayedProductIds.every((id) => selectedCatalogProductIds.includes(id));
+                const toggleSelectAll = () => {
+                  if (isAllSelected) {
+                    setSelectedCatalogProductIds((prev) => prev.filter((id) => !allDisplayedProductIds.includes(id)));
+                  } else {
+                    setSelectedCatalogProductIds((prev) => Array.from(new Set([...prev, ...allDisplayedProductIds])));
+                  }
+                };
+
+                const handleBulkDelete = () => {
+                  if (selectedCatalogProductIds.length === 0) return;
+                  const count = selectedCatalogProductIds.length;
+                  if (
+                    window.confirm(
+                      `Are you sure you want to permanently delete ${count} selected product${count > 1 ? 's' : ''}? This will immediately remove them from the store.`
+                    )
+                  ) {
+                    selectedCatalogProductIds.forEach((id) => {
+                      deleteProduct(id);
+                    });
+                    setSelectedCatalogProductIds([]);
+                  }
+                };
+
+                const handleBulkTag = (tagKey: 'isNewLaunch' | 'isBestseller' | 'isFestive', value: boolean) => {
+                  selectedCatalogProductIds.forEach((id) => {
+                    if (tagKey === 'isNewLaunch') {
+                      updateProduct(id, { isNewLaunch: value, isNewArrival: value });
+                    } else {
+                      updateProduct(id, { [tagKey]: value });
+                    }
+                  });
+                };
+
+                const handleBulkChangeCategory = (newCat: string) => {
+                  selectedCatalogProductIds.forEach((id) => {
+                    updateProduct(id, { category: newCat });
+                  });
+                  setSelectedCatalogProductIds([]);
+                };
+
                 return (
                   <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    {/* Bulk Selection Actions Bar when items are selected */}
+                    {selectedCatalogProductIds.length > 0 ? (
+                      <div className="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between flex-wrap gap-3 text-xs border-b border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                          <span className="font-bold">
+                            {selectedCatalogProductIds.length} {selectedCatalogProductIds.length === 1 ? 'Product' : 'Products'} Selected
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCatalogProductIds([])}
+                            className="text-[11px] text-slate-300 hover:text-white underline cursor-pointer ml-1"
+                          >
+                            Deselect All
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                            <span className="text-[10px] text-slate-400 font-medium">Move to:</span>
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleBulkChangeCategory(e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              defaultValue=""
+                              className="bg-transparent text-white text-xs font-semibold outline-none cursor-pointer"
+                            >
+                              <option value="" disabled className="bg-slate-900 text-white">Select Category...</option>
+                              {categories.map((c) => (
+                                <option key={c.id} value={c.name} className="bg-slate-900 text-white">{c.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleBulkTag('isNewLaunch', true)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1 border border-slate-700"
+                            title="Mark selected products as New Launch"
+                          >
+                            <span>✨ Launch</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleBulkTag('isBestseller', true)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1 border border-slate-700"
+                            title="Mark selected products as Bestseller"
+                          >
+                            <span>🔥 Best</span>
+                          </button>
+
+                          {currentAdminUser.role !== 'Label Admin' && (
+                            <button
+                              type="button"
+                              onClick={handleBulkDelete}
+                              className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                              title="Delete selected products permanently from store"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete ({selectedCatalogProductIds.length})</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">
+                            Showing {filteredProducts.length} Product Styles
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={toggleSelectAll}
+                          className="text-xs font-semibold text-slate-700 hover:text-black hover:underline cursor-pointer flex items-center gap-1.5"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Select All ({allDisplayedProductIds.length})</span>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs min-w-[700px]">
                         <thead className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase text-[11px] tracking-wider">
                           <tr>
+                            <th className="py-3.5 px-3.5 w-12 text-center">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllSelected}
+                                  onChange={toggleSelectAll}
+                                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer accent-slate-900"
+                                  title={isAllSelected ? "Deselect All" : "Select All Products"}
+                                />
+                              </div>
+                            </th>
                             <th className="py-3.5 px-4">Product Details</th>
                             <th className="py-3.5 px-4">Category</th>
                             <th className="py-3.5 px-4">Color Variations</th>
@@ -2907,9 +3209,33 @@ export const AdminPanel: React.FC = () => {
                               0
                             );
                             const variantsCount = p.colorOptions?.length || 1;
+                            const isSelected = selectedCatalogProductIds.includes(p.id);
 
                             return (
-                              <tr key={p.id} className="hover:bg-slate-50/60 transition group">
+                              <tr
+                                key={p.id}
+                                className={`hover:bg-slate-50/60 transition group ${
+                                  isSelected ? 'bg-rose-50/30 font-medium' : ''
+                                }`}
+                              >
+                                {/* Checkbox Single Select */}
+                                <td className="py-3.5 px-3.5 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setSelectedCatalogProductIds((prev) =>
+                                          prev.includes(p.id)
+                                            ? prev.filter((id) => id !== p.id)
+                                            : [...prev, p.id]
+                                        );
+                                      }}
+                                      className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer accent-slate-900"
+                                      title={`Select ${p.name}`}
+                                    />
+                                  </div>
+                                </td>
                                 <td className="py-3.5 px-4 flex items-center gap-3">
                                   <img
                                     src={p.mainImage}
@@ -3073,16 +3399,16 @@ export const AdminPanel: React.FC = () => {
                                       <Edit2 className="w-3.5 h-3.5" />
                                       <span>Edit</span>
                                     </button>
-                                    {currentAdminUser.role === "Super Admin" && (
+                                    {currentAdminUser.role !== "Label Admin" && (
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          if (confirm(`Are you sure you want to delete "${p.name}"?`)) {
+                                          if (confirm(`Are you sure you want to permanently delete "${p.name}"? This cannot be undone.`)) {
                                             deleteProduct(p.id);
                                           }
                                         }}
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                        title="Delete Product (Super Admin)"
+                                        title="Delete Product"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>

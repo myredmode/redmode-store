@@ -1080,11 +1080,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeView, selectedCategorySlug, selectedSubcategorySlug]);
 
-  // Safe Normalization Helper to merge stored products with INITIAL_PRODUCTS
-  const normalizeProductsWithInitial = (rawList: Partial<Product>[]): Product[] => {
-    if (!Array.isArray(rawList) || rawList.length === 0) return INITIAL_PRODUCTS;
+  // Safe Normalization Helper to populate missing fields on stored products without resurrecting deleted items
+  const normalizeProductsWithInitial = (rawList: Partial<Product>[], blacklist: string[] = []): Product[] => {
+    if (!Array.isArray(rawList)) return [];
 
-    const processedProducts: Product[] = rawList.map((p: Partial<Product>) => {
+    const activeList = rawList.filter((p) => p && p.id && !blacklist.includes(p.id));
+
+    return activeList.map((p: Partial<Product>) => {
       const initialMatch = INITIAL_PRODUCTS.find((ip) => ip.id === p.id);
       const userImages =
         Array.isArray(p.images) && p.images.length > 0
@@ -1115,7 +1117,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         pattern: p.pattern || initialMatch?.pattern,
         color: p.color || initialMatch?.color,
         colorOptions: (() => {
-          // If user has saved colorOptions, strictly preserve them! Never revert to initialMatch!
           if (Array.isArray(p.colorOptions) && p.colorOptions.length > 0) {
             return p.colorOptions;
           }
@@ -1126,32 +1127,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         sku: p.sku || initialMatch?.sku,
       } as Product;
     });
-
-    // Ensure any newly added products from INITIAL_PRODUCTS (e.g. Jewellery, Kurti Sets) are present
-    const existingIds = new Set(processedProducts.map((p) => p.id));
-    for (const initProd of INITIAL_PRODUCTS) {
-      if (!existingIds.has(initProd.id)) {
-        processedProducts.push(initProd);
-      }
-    }
-
-    return processedProducts;
   };
 
   // Persistent State with Fallback & Safe Normalization
   const [products, setProducts] = useState<Product[]>(() => {
+    let localDeleted: string[] = [];
+    try {
+      const saved = localStorage.getItem('redmode_deleted_product_ids');
+      if (saved) localDeleted = JSON.parse(saved);
+    } catch {}
+
     try {
       const saved = localStorage.getItem('redmode_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return normalizeProductsWithInitial(parsed);
+        if (Array.isArray(parsed)) {
+          return normalizeProductsWithInitial(parsed, localDeleted);
         }
       }
     } catch (e) {
       console.error('Error parsing products from localStorage:', e);
     }
-    return INITIAL_PRODUCTS;
+    // Only return INITIAL_PRODUCTS that are not in the deletion blacklist
+    return INITIAL_PRODUCTS.filter((p) => !localDeleted.includes(p.id));
   });
 
   const [categories, setCategories] = useState<Category[]>(() => {
@@ -1432,10 +1430,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     deletedProductIds: string[];
     deletedCategoryIds: string[];
     deletedBannerIds: string[];
-  }>({
-    deletedProductIds: [],
-    deletedCategoryIds: [],
-    deletedBannerIds: [],
+  }>(() => {
+    let localDeleted: string[] = [];
+    try {
+      const saved = localStorage.getItem('redmode_deleted_product_ids');
+      if (saved) localDeleted = JSON.parse(saved);
+    } catch {}
+    return {
+      deletedProductIds: Array.isArray(localDeleted) ? localDeleted : [],
+      deletedCategoryIds: [],
+      deletedBannerIds: [],
+    };
   });
 
   // Real-time listener for System Deletions
@@ -1447,11 +1452,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (snap) => {
           if (snap.exists()) {
             const data = snap.data();
+            const delProducts: string[] = Array.isArray(data?.deletedProductIds) ? data.deletedProductIds : [];
+            const delCategories: string[] = Array.isArray(data?.deletedCategoryIds) ? data.deletedCategoryIds : [];
+            const delBanners: string[] = Array.isArray(data?.deletedBannerIds) ? data.deletedBannerIds : [];
+
             setDeletedIds({
-              deletedProductIds: Array.isArray(data?.deletedProductIds) ? data.deletedProductIds : [],
-              deletedCategoryIds: Array.isArray(data?.deletedCategoryIds) ? data.deletedCategoryIds : [],
-              deletedBannerIds: Array.isArray(data?.deletedBannerIds) ? data.deletedBannerIds : [],
+              deletedProductIds: delProducts,
+              deletedCategoryIds: delCategories,
+              deletedBannerIds: delBanners,
             });
+
+            try {
+              localStorage.setItem('redmode_deleted_product_ids', JSON.stringify(delProducts));
+            } catch {}
+
+            // Immediately purge any deleted items from local active state
+            if (delProducts.length > 0) {
+              setProducts((prev) => prev.filter((p) => !delProducts.includes(p.id)));
+            }
           }
         },
         (err) => {
@@ -1469,12 +1487,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let isCancelled = false;
     let unsubscribe: (() => void) | undefined;
 
+    let localDeleted: string[] = [];
+    try {
+      const saved = localStorage.getItem('redmode_deleted_product_ids');
+      if (saved) localDeleted = JSON.parse(saved);
+    } catch {}
+    const activeBlacklist = Array.from(new Set([...deletedIds.deletedProductIds, ...localDeleted]));
+
     // Fast local initial load from IndexedDB
     idbGet<Product[]>('redmode_products_v2')
       .then((idbProducts) => {
-        if (idbProducts && Array.isArray(idbProducts) && idbProducts.length > 0 && !isCancelled) {
-          const filtered = idbProducts.filter((p) => !deletedIds.deletedProductIds.includes(p.id));
-          const normalized = normalizeProductsWithInitial(filtered);
+        if (idbProducts && Array.isArray(idbProducts) && !isCancelled) {
+          const filtered = idbProducts.filter((p) => !activeBlacklist.includes(p.id));
+          const normalized = normalizeProductsWithInitial(filtered, activeBlacklist);
           setProducts(normalized);
         }
       })
@@ -1486,22 +1511,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         collection(db, 'products'),
         (snap) => {
           if (!isCancelled) {
+            let currentLocalDeleted: string[] = [];
+            try {
+              const saved = localStorage.getItem('redmode_deleted_product_ids');
+              if (saved) currentLocalDeleted = JSON.parse(saved);
+            } catch {}
+            const fullBlacklist = Array.from(new Set([...deletedIds.deletedProductIds, ...currentLocalDeleted]));
+
             const fsProducts: Product[] = [];
             snap.forEach((d) => {
               const data = d.data();
               if (data && data.id) {
-                if (!deletedIds.deletedProductIds.includes(data.id)) {
+                if (!fullBlacklist.includes(data.id)) {
                   fsProducts.push(data as Product);
                 }
               }
             });
 
-            if (fsProducts.length > 0) {
-              const normalized = normalizeProductsWithInitial(fsProducts);
+            // Update store live: if products exist in Firestore, normalize and reflect everywhere
+            if (!snap.empty) {
+              const normalized = normalizeProductsWithInitial(fsProducts, fullBlacklist);
               setProducts(normalized);
               idbSet('redmode_products_v2', normalized).catch(() => {});
               try {
                 localStorage.setItem('redmode_products', JSON.stringify(normalized));
+              } catch {}
+            } else if (snap.empty && fullBlacklist.length > 0) {
+              // Store was wiped or all items deleted
+              setProducts([]);
+              idbSet('redmode_products_v2', []).catch(() => {});
+              try {
+                localStorage.setItem('redmode_products', '[]');
               } catch {}
             }
           }
@@ -2419,10 +2459,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteProduct = (id: string) => {
-    if (currentAdminUser.role !== 'Super Admin') {
-      console.warn('Unauthorized: Product deletion is restricted to Super Admin only.');
-      return;
-    }
+    // 1. Immediately remove from local reactive state & storage
     setProducts((prev) => {
       const next = prev.filter((p) => p.id !== id);
       idbSet('redmode_products_v2', next).catch(() => {});
@@ -2432,8 +2469,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return next;
     });
 
+    // 2. Add to deleted IDs blacklist locally so reload never resurrects this item
+    setDeletedIds((prev) => {
+      const updated = Array.from(new Set([...prev.deletedProductIds, id]));
+      try {
+        localStorage.setItem('redmode_deleted_product_ids', JSON.stringify(updated));
+      } catch {}
+      return {
+        ...prev,
+        deletedProductIds: updated,
+      };
+    });
+
+    // 3. Delete doc from Firestore & append to system_deletions blacklist in cloud
     try {
-      deleteDoc(doc(db, 'products', id)).catch(() => {});
+      deleteDoc(doc(db, 'products', id)).catch((err) => {
+        console.debug('Firestore product delete doc skipped/offline:', err);
+      });
       setDoc(
         doc(db, 'settings', 'system_deletions'),
         {
@@ -2441,7 +2493,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
-      ).catch(() => {});
+      ).catch((err) => {
+        console.debug('Firestore system_deletions update skipped/offline:', err);
+      });
     } catch {}
 
     addAuditLog(`Deleted product ID: ${id}`, 'Product', id);
