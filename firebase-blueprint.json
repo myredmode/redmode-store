@@ -58,6 +58,18 @@
       "schema": "Product",
       "description": "Catalog products and updated listings"
     },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Store categories and subcategories"
+    },
+    "/banners/{bannerId}": {
+      "schema": "Banner",
+      "description": "Storefront promotional and hero banners"
+    },
+    "/settings/{settingId}": {
+      "schema": "StoreSettings",
+      "description": "Global store settings and payment configurations"
+    },
     "/AuditLog/{logId}": {
       "schema": "AuditLog",
       "description": "Critical administrative security audit logs"

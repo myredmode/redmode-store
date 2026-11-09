@@ -43,7 +43,17 @@ import { calculateOrderParcel, sanitizeOrderForCustomer } from '../utils/packagi
 import { logAdminActivity } from '../utils/activityLogger';
 import { idbGet, idbSet } from '../utils/indexedDb';
 import { db } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
+} from 'firebase/firestore';
 import { recordFirestoreAuditLog } from '../utils/auditLogger';
 
 function cleanForFirestore(obj: any): any {
@@ -1417,84 +1427,115 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Active OTP storage for customer verification
   const [activeCustomerOtps, setActiveCustomerOtps] = useState<Record<string, string>>({});
 
-  // 1. Authoritative Hydration from IndexedDB (instant) and Firestore collection 'products' (cloud sync)
+  // Track system deletions across Firestore so deleted items never resurrect on any client
+  const [deletedIds, setDeletedIds] = useState<{
+    deletedProductIds: string[];
+    deletedCategoryIds: string[];
+    deletedBannerIds: string[];
+  }>({
+    deletedProductIds: [],
+    deletedCategoryIds: [],
+    deletedBannerIds: [],
+  });
+
+  // Real-time listener for System Deletions
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onSnapshot(
+        doc(db, 'settings', 'system_deletions'),
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            setDeletedIds({
+              deletedProductIds: Array.isArray(data?.deletedProductIds) ? data.deletedProductIds : [],
+              deletedCategoryIds: Array.isArray(data?.deletedCategoryIds) ? data.deletedCategoryIds : [],
+              deletedBannerIds: Array.isArray(data?.deletedBannerIds) ? data.deletedBannerIds : [],
+            });
+          }
+        },
+        (err) => {
+          console.debug('Firestore system_deletions sync skipped:', err);
+        }
+      );
+    } catch {}
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // 1. Real-time Cloud Firestore Synchronization for Products across all devices & browsers
   useEffect(() => {
     let isCancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    const loadPersistedProducts = async () => {
-      try {
-        // Fast local load from IndexedDB (no 5MB quota limit, retains all photos & colorways)
-        const idbProducts = await idbGet<Product[]>('redmode_products_v2');
+    // Fast local initial load from IndexedDB
+    idbGet<Product[]>('redmode_products_v2')
+      .then((idbProducts) => {
         if (idbProducts && Array.isArray(idbProducts) && idbProducts.length > 0 && !isCancelled) {
-          const normalized = normalizeProductsWithInitial(idbProducts);
+          const filtered = idbProducts.filter((p) => !deletedIds.deletedProductIds.includes(p.id));
+          const normalized = normalizeProductsWithInitial(filtered);
           setProducts(normalized);
         }
+      })
+      .catch(() => {});
 
-        // Background sync from Firestore (retains across browsers and devices)
-        try {
-          const snap = await getDocs(collection(db, 'products'));
-          if (!snap.empty && !isCancelled) {
+    // Active real-time Firestore onSnapshot listener
+    try {
+      unsubscribe = onSnapshot(
+        collection(db, 'products'),
+        (snap) => {
+          if (!isCancelled) {
             const fsProducts: Product[] = [];
             snap.forEach((d) => {
               const data = d.data();
               if (data && data.id) {
-                fsProducts.push(data as Product);
+                if (!deletedIds.deletedProductIds.includes(data.id)) {
+                  fsProducts.push(data as Product);
+                }
               }
             });
 
             if (fsProducts.length > 0) {
-              setProducts((prev) => {
-                const map = new Map<string, Product>();
-                prev.forEach((p) => map.set(p.id, p));
-                fsProducts.forEach((p) => {
-                  const existing = map.get(p.id);
-                  map.set(p.id, existing ? { ...existing, ...p } : p);
-                });
-                const merged = normalizeProductsWithInitial(Array.from(map.values()));
-                idbSet('redmode_products_v2', merged).catch(() => {});
-                return merged;
-              });
+              const normalized = normalizeProductsWithInitial(fsProducts);
+              setProducts(normalized);
+              idbSet('redmode_products_v2', normalized).catch(() => {});
+              try {
+                localStorage.setItem('redmode_products', JSON.stringify(normalized));
+              } catch {}
             }
           }
-        } catch (fsErr) {
-          console.debug('Firestore products sync skipped/offline:', fsErr);
+        },
+        (fsErr) => {
+          console.debug('Firestore products onSnapshot listener offline/skipped:', fsErr);
         }
-      } catch (err) {
-        console.warn('Failed to load persisted products:', err);
-      }
-    };
-
-    loadPersistedProducts();
+      );
+    } catch (err) {
+      console.debug('Failed to initialize products onSnapshot:', err);
+    }
 
     return () => {
       isCancelled = true;
+      if (unsubscribe) unsubscribe();
     };
-  }, []);
+  }, [deletedIds.deletedProductIds]);
 
-  // Sync to IndexedDB and LocalStorage
+  // Sync to IndexedDB and LocalStorage as offline fallback
   useEffect(() => {
-    idbSet('redmode_products_v2', products).catch((err) => {
-      console.warn('Failed saving products to IndexedDB:', err);
-    });
+    idbSet('redmode_products_v2', products).catch(() => {});
     try {
       localStorage.setItem('redmode_products', JSON.stringify(products));
-    } catch (err) {
-      // Ignored: IndexedDB and Firestore retain complete products without quota limits
-    }
+    } catch {}
   }, [products]);
 
   useEffect(() => {
     try {
       localStorage.setItem('redmode_categories', JSON.stringify(categories));
-    } catch (err) {
-      console.warn('localStorage save warning for categories, backed by IndexedDB:', err);
-    }
-    idbSet('redmode_categories_v2', categories).catch((err) => {
-      console.warn('Failed saving categories to IndexedDB:', err);
-    });
+    } catch {}
+    idbSet('redmode_categories_v2', categories).catch(() => {});
   }, [categories]);
 
-  // Real-time Cloud Firestore Synchronization for Categories across all devices & browsers
+  // 2. Real-time Cloud Firestore Synchronization for Categories across all devices & browsers
   useEffect(() => {
     let isCancelled = false;
     let unsubscribe: (() => void) | undefined;
@@ -1503,13 +1544,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubscribe = onSnapshot(
         collection(db, 'categories'),
         (snap) => {
-          if (!snap.empty && !isCancelled) {
+          if (!isCancelled) {
             const fsCategories: Category[] = [];
             snap.forEach((d) => {
               const data = d.data();
-              if (data && data.id) {
+              if (data && data.id && !deletedIds.deletedCategoryIds.includes(data.id)) {
                 const cat = { ...(data as Category) };
-                // Clean any legacy /assets/categories/ paths
                 if (cat.imageUrl && cat.imageUrl.startsWith('/assets/categories/')) {
                   const initMatch = INITIAL_CATEGORIES.find((ic) => ic.id === cat.id || ic.slug === cat.slug);
                   cat.imageUrl = initMatch?.imageUrl || '';
@@ -1535,6 +1575,82 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
     } catch (err) {
       console.debug('Failed to initialize categories onSnapshot:', err);
+    }
+
+    return () => {
+      isCancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [deletedIds.deletedCategoryIds]);
+
+  // 3. Real-time Cloud Firestore Synchronization for Promotional Banners
+  useEffect(() => {
+    let isCancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = onSnapshot(
+        collection(db, 'banners'),
+        (snap) => {
+          if (!isCancelled) {
+            const fsBanners: HeroBanner[] = [];
+            snap.forEach((d) => {
+              const data = d.data();
+              if (data && data.id && !deletedIds.deletedBannerIds.includes(data.id)) {
+                fsBanners.push(data as HeroBanner);
+              }
+            });
+
+            if (fsBanners.length > 0) {
+              setBanners(fsBanners);
+              try {
+                localStorage.setItem('redmode_banners', JSON.stringify(fsBanners));
+              } catch {}
+            }
+          }
+        },
+        (err) => {
+          console.debug('Firestore banners onSnapshot offline/skipped:', err);
+        }
+      );
+    } catch (err) {
+      console.debug('Failed to initialize banners onSnapshot:', err);
+    }
+
+    return () => {
+      isCancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [deletedIds.deletedBannerIds]);
+
+  // 4. Real-time Cloud Firestore Synchronization for Store Settings (Payment gateways, announcements, store details)
+  useEffect(() => {
+    let isCancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = onSnapshot(
+        doc(db, 'settings', 'store_settings'),
+        (snap) => {
+          if (snap.exists() && !isCancelled) {
+            const data = snap.data();
+            if (data && Object.keys(data).length > 0) {
+              setSettings((prev) => {
+                const merged = { ...prev, ...data } as StoreSettings;
+                try {
+                  localStorage.setItem('redmode_settings', JSON.stringify(merged));
+                } catch {}
+                return merged;
+              });
+            }
+          }
+        },
+        (err) => {
+          console.debug('Firestore store_settings onSnapshot offline/skipped:', err);
+        }
+      );
+    } catch (err) {
+      console.debug('Failed to initialize store_settings onSnapshot:', err);
     }
 
     return () => {
@@ -2235,6 +2351,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setDoc(doc(db, 'products', newProduct.id), cleanForFirestore(newProduct)).catch((err) => {
         console.debug('Firestore product create sync skipped/offline:', err);
       });
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        {
+          deletedProductIds: arrayRemove(newProduct.id),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
     } catch {}
 
     logAdminActivity({
@@ -2270,7 +2394,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Cloud Firestore Sync for permanent cross-device persistence
     try {
-      setDoc(doc(db, 'products', id), cleanForFirestore(updatedProd)).catch((err) => {
+      setDoc(doc(db, 'products', id), cleanForFirestore(updatedProd), { merge: true }).catch((err) => {
         console.debug('Firestore product update sync skipped/offline:', err);
       });
     } catch {}
@@ -2310,13 +2434,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       deleteDoc(doc(db, 'products', id)).catch(() => {});
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        {
+          deletedProductIds: arrayUnion(id),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
     } catch {}
 
     addAuditLog(`Deleted product ID: ${id}`, 'Product', id);
   };
 
   const togglePublishProduct = (id: string) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, published: !p.published } : p)));
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
+    const nextPublished = !target.published;
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, published: nextPublished } : p)));
+    try {
+      setDoc(doc(db, 'products', id), { published: nextPublished }, { merge: true }).catch(() => {});
+    } catch {}
   };
 
   const addCategory = async (nameOrCat: string | Partial<Category>, categoryData?: Partial<Category>): Promise<boolean> => {
@@ -2366,6 +2504,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       await setDoc(doc(db, 'categories', newCat.id), cleanForFirestore(newCat), { merge: true });
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        {
+          deletedCategoryIds: arrayRemove(newCat.id),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
       return true;
     } catch (e) {
       console.error('Failed to write new category to Firestore:', e);
@@ -2427,7 +2573,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteCategory = (id: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== id));
-    deleteDoc(doc(db, 'categories', id)).catch(() => {});
+    try {
+      deleteDoc(doc(db, 'categories', id)).catch(() => {});
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        {
+          deletedCategoryIds: arrayUnion(id),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    } catch {}
   };
 
   const reorderCategories = async (newOrderedCategories: Category[]): Promise<boolean> => {
@@ -2515,14 +2671,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `banner-${Date.now()}`,
     };
     setBanners((prev) => [...prev, newBanner]);
+    try {
+      setDoc(doc(db, 'banners', newBanner.id), cleanForFirestore(newBanner), { merge: true }).catch(() => {});
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        { deletedBannerIds: arrayRemove(newBanner.id) },
+        { merge: true }
+      ).catch(() => {});
+    } catch {}
   };
 
   const updateBanner = (banner: HeroBanner) => {
     setBanners((prev) => prev.map((b) => (b.id === banner.id ? banner : b)));
+    try {
+      setDoc(doc(db, 'banners', banner.id), cleanForFirestore(banner), { merge: true }).catch(() => {});
+    } catch {}
   };
 
   const deleteBanner = (id: string) => {
     setBanners((prev) => prev.filter((b) => b.id !== id));
+    try {
+      deleteDoc(doc(db, 'banners', id)).catch(() => {});
+      setDoc(
+        doc(db, 'settings', 'system_deletions'),
+        {
+          deletedBannerIds: arrayUnion(id),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    } catch {}
   };
 
   const addBlog = (blogData: Omit<Blog, 'id' | 'createdAt'>) => {
@@ -2916,12 +3094,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateProductStock = (productId: string, sizeOrKey: string, newCount: number) => {
+    let updatedTotal = 0;
+    let updatedStockBySize: Record<string, number> = {};
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== productId) return p;
         const currentStockBySize = { ...(p.stockBySize || {}) };
         currentStockBySize[sizeOrKey] = Math.max(0, newCount);
         const total = Object.values(currentStockBySize).reduce<number>((sum, v) => sum + (Number(v) || 0), 0);
+        updatedTotal = total;
+        updatedStockBySize = currentStockBySize;
         return {
           ...p,
           stockBySize: currentStockBySize,
@@ -2929,6 +3111,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
       })
     );
+    try {
+      setDoc(
+        doc(db, 'products', productId),
+        {
+          stockBySize: updatedStockBySize,
+          stock: updatedTotal,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    } catch {}
   };
 
   const adjustProductStockWithReason = (
@@ -2954,6 +3147,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {}
       return updated;
     });
+
+    try {
+      setDoc(
+        doc(db, 'products', productId),
+        {
+          stockBySize: currentStockBySize,
+          stock: total,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    } catch {}
 
     const logItem: InventoryLogEntry = {
       id: `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -3783,6 +3988,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {
         console.warn('Failed to save settings:', e);
       }
+      try {
+        setDoc(doc(db, 'settings', 'store_settings'), cleanForFirestore(updated), { merge: true }).catch(() => {});
+      } catch {}
       return updated;
     });
   };
@@ -3841,6 +4049,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {
         console.warn('Failed to save payment gateway settings:', e);
       }
+      try {
+        setDoc(doc(db, 'settings', 'store_settings'), cleanForFirestore(updated), { merge: true }).catch(() => {});
+      } catch {}
       return updated;
     });
   };
@@ -3860,6 +4071,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {
         console.warn('Failed to save settings:', e);
       }
+      try {
+        setDoc(doc(db, 'settings', 'store_settings'), cleanForFirestore(updated), { merge: true }).catch(() => {});
+      } catch {}
       return updated;
     });
   };
@@ -3880,6 +4094,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {
         console.warn('Failed to save settings:', e);
       }
+      try {
+        setDoc(doc(db, 'settings', 'store_settings'), cleanForFirestore(updated), { merge: true }).catch(() => {});
+      } catch {}
 
       // Sync active credentials to backend so /api/otp/send-otp has latest keys
       fetch('/api/admin/sms-settings', {
@@ -4183,6 +4400,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {
       console.warn('Failed to save settings to localStorage:', e);
     }
+    try {
+      setDoc(doc(db, 'settings', 'store_settings'), cleanForFirestore(newSettings), { merge: true }).catch((err) => {
+        console.debug('Firestore store_settings sync warning:', err);
+      });
+    } catch {}
 
     if (newSettings.adminProfile) {
       const profile = newSettings.adminProfile;
