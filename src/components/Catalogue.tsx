@@ -21,6 +21,8 @@ export const Catalogue: React.FC = () => {
     setSelectedCategorySlug,
     selectedSubcategorySlug,
     setSelectedSubcategorySlug,
+    subcategoriesShowcaseCategorySlug,
+    setSubcategoriesShowcaseCategorySlug,
     searchQuery,
     setActiveView,
   } = useStore();
@@ -28,6 +30,7 @@ export const Catalogue: React.FC = () => {
   const [priceSort, setPriceSort] = useState<'featured' | 'low-high' | 'high-low' | 'bestsellers'>('featured');
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string | null>(null);
   const [selectedColorFilter, setSelectedColorFilter] = useState<string | null>(null);
+  const [selectedSubSubcategorySlug, setSelectedSubSubcategorySlug] = useState<string | null>(null);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [showAllSubcatProducts, setShowAllSubcatProducts] = useState(false);
@@ -90,6 +93,34 @@ export const Catalogue: React.FC = () => {
       (sub) => sub.slug.toLowerCase() === selectedSubcategorySlug.toLowerCase()
     );
   }, [activeSubcategories, selectedSubcategorySlug]);
+
+  // Child categories / Variety styles inside active subcategory
+  const activeSubSubcategories = useMemo(() => {
+    if (!currentSubcategory) return [];
+    const rawChildren = (currentSubcategory as any).subcategories || (currentSubcategory as any).childCategories || [];
+    if (!Array.isArray(rawChildren)) return [];
+    return rawChildren
+      .map((child: any) =>
+        typeof child === 'string'
+          ? { id: child, name: child, slug: child.toLowerCase().replace(/\s+/g, '-') }
+          : {
+              id: child.id || child.slug,
+              name: child.name,
+              slug: child.slug || child.name.toLowerCase().replace(/\s+/g, '-'),
+            }
+      )
+      .filter((c: any) => c.name);
+  }, [currentSubcategory]);
+
+  // Showcase Banners ONLY when entering from Home Page and subcategories exist:
+  // When browsing from product section/navbar, or if category has no subcategories, show products directly!
+  const isBrowsingSubcategoryShowcase = Boolean(
+    subcategoriesShowcaseCategorySlug &&
+    selectedCategorySlug &&
+    subcategoriesShowcaseCategorySlug.toLowerCase() === selectedCategorySlug.toLowerCase() &&
+    activeSubcategories.length > 0 &&
+    !selectedSubcategorySlug
+  );
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -249,6 +280,19 @@ export const Catalogue: React.FC = () => {
           if (!matchSub) return false;
         }
 
+        // Sub-subcategory / Variety filter
+        if (selectedSubSubcategorySlug) {
+          const subSubSlug = selectedSubSubcategorySlug.toLowerCase().replace(/\s+/g, '-');
+          const pSubSub = ((p as any).subSubcategory || '').toLowerCase().replace(/\s+/g, '-');
+          const pName = (p.name || '').toLowerCase();
+          const matchSubSub =
+            pSubSub === subSubSlug ||
+            pSubSub.includes(subSubSlug) ||
+            subSubSlug.includes(pSubSub) ||
+            pName.includes(subSubSlug.replace(/-/g, ' '));
+          if (!matchSubSub) return false;
+        }
+
         // Size filter
         if (selectedSizeFilter) {
           if (!p.sizes.includes(selectedSizeFilter)) return false;
@@ -362,8 +406,110 @@ export const Catalogue: React.FC = () => {
 
   return (
     <div className="w-full bg-white font-sans text-zinc-900 pb-20 sm:pb-12">
-      {/* ========================================================================= */}
-      {/* 2. MINIMAL FILTER & SORT TOOLBAR (PREMIUM FASHION EDITORIAL HEADER)        */}
+      {isBrowsingSubcategoryShowcase ? (
+        <section className="w-full bg-zinc-950 overflow-hidden">
+          {/* 1. Mobile Subcategories (Stacked Full-Screen Banners) */}
+          <div className="md:hidden w-full flex flex-col">
+            {activeSubcategories.map((sub, idx) => {
+              const rawSubImage = sub.imageUrl || sub.bannerUrl;
+              const imageUrl = getCacheBustedUrl(
+                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
+                currentCategory?.updatedAt
+              );
+              return (
+                <div
+                  key={`mobile-${sub.id}`}
+                  id={`mobile-subcat-banner-${sub.slug}`}
+                  onClick={() => {
+                    setSelectedSubcategorySlug(sub.slug);
+                    setSelectedSubSubcategorySlug(null);
+                    setSubcategoriesShowcaseCategorySlug(null);
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                  }}
+                  className="relative w-full h-[52vh] min-h-[380px] overflow-hidden bg-zinc-950 cursor-pointer select-none border-b border-zinc-900/40"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Explore ${sub.name}`}
+                >
+                  <img
+                    src={imageUrl}
+                    alt={sub.name}
+                    className="w-full h-full object-cover object-top"
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-8 px-4 text-center flex flex-col items-center justify-center pointer-events-none space-y-1">
+                    <span className="text-[10px] font-semibold tracking-[0.24em] text-zinc-300 uppercase drop-shadow-md">
+                      {sub.description || 'EXCLUSIVE LUXURY EDIT'}
+                    </span>
+                    <h2 className="text-3xl font-bold uppercase tracking-wider text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+                      {sub.name.toUpperCase()}
+                    </h2>
+                    <span className="text-[10px] text-white/90 tracking-[0.18em] uppercase font-medium pt-1 underline underline-offset-4 decoration-white/60">
+                      EXPLORE COLLECTION →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 2. Desktop Subcategories Grid (Side-by-Side Vertical Split Banners) */}
+          <div
+            id="desktop-subcategory-banners"
+            className="hidden md:grid w-full h-[calc(100vh-48px)] min-h-[600px] max-h-[920px] bg-zinc-950 overflow-hidden"
+            style={{
+              gridTemplateColumns: `repeat(${activeSubcategories.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {activeSubcategories.map((sub, idx) => {
+              const rawSubImage = sub.imageUrl || sub.bannerUrl;
+              const imageUrl = getCacheBustedUrl(
+                getSubcategoryImage(sub.slug, sub.name, rawSubImage),
+                currentCategory?.updatedAt
+              );
+              return (
+                <div
+                  key={`desktop-${sub.id}`}
+                  id={`desktop-subcat-tile-${sub.slug}`}
+                  onClick={() => {
+                    setSelectedSubcategorySlug(sub.slug);
+                    setSelectedSubSubcategorySlug(null);
+                    setSubcategoriesShowcaseCategorySlug(null);
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                  }}
+                  className="relative w-full h-full overflow-hidden bg-zinc-950 cursor-pointer select-none group border-r border-zinc-900/30 last:border-r-0 transition-transform duration-200"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Explore ${sub.name} Collection`}
+                >
+                  <img
+                    src={imageUrl}
+                    alt={sub.name}
+                    className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent pointer-events-none group-hover:from-black/90 transition-all duration-300" />
+                  <div className="absolute inset-x-0 bottom-8 lg:bottom-12 px-3 text-center flex flex-col items-center justify-end pointer-events-none space-y-1">
+                    <span className="text-[10px] lg:text-[11px] font-semibold tracking-[0.2em] text-zinc-300 uppercase drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 line-clamp-1">
+                      {sub.description || 'EXCLUSIVE LUXURY EDIT'}
+                    </span>
+                    <h2 className="text-sm lg:text-base xl:text-lg font-bold tracking-[0.16em] uppercase text-white drop-shadow-md underline underline-offset-8 decoration-white/70 group-hover:decoration-white transition-all">
+                      {sub.name.toUpperCase()}
+                    </h2>
+                    <span className="text-[10px] text-white/90 tracking-[0.18em] uppercase font-medium pt-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                      EXPLORE COLLECTION →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* ========================================================================= */}
+          {/* 2. MINIMAL FILTER & SORT TOOLBAR (PREMIUM FASHION EDITORIAL HEADER)        */}
           {/* Left: [🎚] FILTER   [⇅] SORT BY                                           */}
           {/* Center: {count} PRODUCTS                                                  */}
           {/* Right: [ ▢ ] (1-Col)   [ ◫ ] (2-Col)   [ ▦ ] (4-Col Grid)                */}
@@ -508,7 +654,10 @@ export const Catalogue: React.FC = () => {
                 <button
                   type="button"
                   id="subcat-chip-all"
-                  onClick={() => setSelectedSubcategorySlug(null)}
+                  onClick={() => {
+                    setSelectedSubcategorySlug(null);
+                    setSelectedSubSubcategorySlug(null);
+                  }}
                   className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
                     !selectedSubcategorySlug
                       ? 'bg-zinc-950 text-white shadow-xs'
@@ -524,7 +673,10 @@ export const Catalogue: React.FC = () => {
                       key={sub.id}
                       type="button"
                       id={`subcat-chip-${sub.slug}`}
-                      onClick={() => setSelectedSubcategorySlug(isSelected ? null : sub.slug)}
+                      onClick={() => {
+                        setSelectedSubcategorySlug(isSelected ? null : sub.slug);
+                        setSelectedSubSubcategorySlug(null);
+                      }}
                       className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
                         isSelected
                           ? 'bg-zinc-950 text-white shadow-xs'
@@ -532,6 +684,49 @@ export const Catalogue: React.FC = () => {
                       }`}
                     >
                       {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 2C. SUB-SUBCATEGORY (VARIETY / CHILD STYLES) FILTER CHIPS                 */}
+          {/* ========================================================================= */}
+          {activeSubSubcategories.length > 0 && (
+            <div className="w-full bg-zinc-100/90 border-b border-zinc-200 py-2 px-3 sm:px-6 lg:px-8">
+              <div className="max-w-[1920px] mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
+                <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 mr-1 shrink-0 select-none">
+                  VARIETY:
+                </span>
+                <button
+                  type="button"
+                  id="subsubcat-chip-all"
+                  onClick={() => setSelectedSubSubcategorySlug(null)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                    !selectedSubSubcategorySlug
+                      ? 'bg-zinc-900 text-white shadow-xs'
+                      : 'bg-white text-zinc-700 hover:bg-zinc-200 hover:text-black border border-zinc-300'
+                  }`}
+                >
+                  All Varieties
+                </button>
+                {activeSubSubcategories.map((child: any) => {
+                  const isSelected = selectedSubSubcategorySlug?.toLowerCase() === child.slug.toLowerCase();
+                  return (
+                    <button
+                      key={child.id || child.slug}
+                      type="button"
+                      id={`subsubcat-chip-${child.slug}`}
+                      onClick={() => setSelectedSubSubcategorySlug(isSelected ? null : child.slug)}
+                      className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                        isSelected
+                          ? 'bg-zinc-900 text-white shadow-xs'
+                          : 'bg-white text-zinc-700 hover:bg-zinc-200 hover:text-black border border-zinc-300'
+                      }`}
+                    >
+                      {child.name}
                     </button>
                   );
                 })}
@@ -617,6 +812,8 @@ export const Catalogue: React.FC = () => {
               )}
             </div>
           </div>
+        </>
+      )}
 
       {/* ========================================================================= */}
       {/* 5. SLIDE-OVER FILTER DRAWER (Rare Rabbit style clean sidebar drawer)       */}

@@ -164,6 +164,8 @@ interface StoreContextType {
   setSelectedCategorySlug: (slug: string | null) => void;
   selectedSubcategorySlug: string | null;
   setSelectedSubcategorySlug: (slug: string | null) => void;
+  subcategoriesShowcaseCategorySlug: string | null;
+  setSubcategoriesShowcaseCategorySlug: (slug: string | null) => void;
   goBack: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -262,6 +264,8 @@ interface StoreContextType {
   reorderCategories: (newOrderedCategories: Category[]) => Promise<boolean> | void;
   addSubcategory: (categoryId: string, subcategory: Omit<Subcategory, 'id'> | Subcategory) => void;
   deleteSubcategory: (categoryId: string, subcategoryId: string) => void;
+  addSubSubcategory: (categoryId: string, subcategoryId: string, subSub: Omit<Subcategory, 'id'> | Subcategory | string) => void;
+  deleteSubSubcategory: (categoryId: string, subcategoryId: string, subSubId: string) => void;
   syncCategoriesToCloud: () => Promise<{ success: boolean; count: number }>;
 
   addBanner: (banner: Omit<HeroBanner, 'id'>) => void;
@@ -923,6 +927,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [shipmozoConfigured] = useState<boolean>(false);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(initialNav.categorySlug);
   const [selectedSubcategorySlug, setSelectedSubcategorySlug] = useState<string | null>(initialNav.subcategorySlug);
+  const [subcategoriesShowcaseCategorySlug, setSubcategoriesShowcaseCategorySlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [lastAddedItem, setLastAddedItem] = useState<AddedItemInfo | null>(null);
@@ -2705,6 +2710,102 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return {
             ...c,
             subcategories: currentSubs.filter((s) => s.id !== subcategoryId),
+          };
+        }
+        return c;
+      });
+
+      const updatedCat = next.find((c) => c.id === categoryId);
+      if (updatedCat) {
+        setDoc(doc(db, 'categories', categoryId), cleanForFirestore(updatedCat)).catch(() => {});
+      }
+
+      return next;
+    });
+  };
+
+  const addSubSubcategory = (
+    categoryId: string,
+    subcategoryId: string,
+    subSub: Omit<Subcategory, 'id'> | Subcategory | string
+  ) => {
+    const newChild: Subcategory =
+      typeof subSub === 'string'
+        ? {
+            id: `child-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: subSub.trim(),
+            slug:
+              subSub
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') || `child-${Date.now()}`,
+            imageUrl: '',
+            bannerUrl: '',
+            description: '',
+          }
+        : {
+            id:
+              'id' in subSub && subSub.id
+                ? subSub.id
+                : `child-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: subSub.name,
+            slug:
+              (subSub.slug || subSub.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-+|-+$/g, '') ||
+              `child-${Date.now()}`,
+            imageUrl: subSub.imageUrl || '',
+            bannerUrl: subSub.bannerUrl || '',
+            description: subSub.description || '',
+          };
+
+    setCategories((prev) => {
+      const next = prev.map((c) => {
+        if (c.id === categoryId) {
+          const currentSubs = Array.isArray(c.subcategories) ? c.subcategories : [];
+          return {
+            ...c,
+            subcategories: currentSubs.map((s) => {
+              if (s.id === subcategoryId || s.slug === subcategoryId) {
+                const currentChildren = Array.isArray(s.subcategories) ? s.subcategories : [];
+                return {
+                  ...s,
+                  subcategories: [...currentChildren, newChild],
+                };
+              }
+              return s;
+            }),
+          };
+        }
+        return c;
+      });
+
+      const updatedCat = next.find((c) => c.id === categoryId);
+      if (updatedCat) {
+        setDoc(doc(db, 'categories', categoryId), cleanForFirestore(updatedCat)).catch(() => {});
+      }
+
+      return next;
+    });
+  };
+
+  const deleteSubSubcategory = (categoryId: string, subcategoryId: string, subSubId: string) => {
+    setCategories((prev) => {
+      const next = prev.map((c) => {
+        if (c.id === categoryId) {
+          const currentSubs = Array.isArray(c.subcategories) ? c.subcategories : [];
+          return {
+            ...c,
+            subcategories: currentSubs.map((s) => {
+              if (s.id === subcategoryId || s.slug === subcategoryId) {
+                const currentChildren = Array.isArray(s.subcategories) ? s.subcategories : [];
+                return {
+                  ...s,
+                  subcategories: currentChildren.filter(
+                    (child) => child.id !== subSubId && child.slug !== subSubId && child.name !== subSubId
+                  ),
+                };
+              }
+              return s;
+            }),
           };
         }
         return c;
@@ -4724,6 +4825,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSelectedCategorySlug,
         selectedSubcategorySlug,
         setSelectedSubcategorySlug,
+        subcategoriesShowcaseCategorySlug,
+        setSubcategoriesShowcaseCategorySlug,
         goBack,
         searchQuery,
         setSearchQuery,
@@ -4777,6 +4880,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         syncCategoriesToCloud,
         addSubcategory,
         deleteSubcategory,
+        addSubSubcategory,
+        deleteSubSubcategory,
         addBanner,
         updateBanner,
         deleteBanner,

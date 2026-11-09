@@ -65,6 +65,7 @@ export interface Product {
   images: string[];
   category: string;
   subcategory: string;
+  subSubcategory?: string;
   sizes: string[];
   defaultSize: string; // e.g. "S"
   stockBySize: Record<string, number>; // e.g. { S: 5, M: 12, L: 8, XL: 3 }
@@ -121,6 +122,8 @@ export interface Subcategory {
   imageUrl?: string;
   bannerUrl?: string;
   description?: string;
+  subcategories?: Subcategory[];
+  childCategories?: Subcategory[];
   updatedAt?: string;
 }
 

@@ -48,6 +48,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     syncCategoriesToCloud,
     addSubcategory,
     deleteSubcategory,
+    addSubSubcategory,
+    deleteSubSubcategory,
     banners,
     addBanner,
     updateBanner,
@@ -112,6 +114,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
   const [subSlugInput, setSubSlugInput] = useState('');
   const [subImageInput, setSubImageInput] = useState('');
   const [subBannerInput, setSubBannerInput] = useState('');
+  const [subSubList, setSubSubList] = useState<Subcategory[]>([]);
+  const [newSubSubName, setNewSubSubName] = useState('');
 
   // Hero Banner Edit / Create Modal state
   const [editingBanner, setEditingBanner] = useState<HeroBanner | null>(null);
@@ -266,6 +270,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     setSubSlugInput('');
     setSubImageInput('');
     setSubBannerInput('');
+    setSubSubList([]);
+    setNewSubSubName('');
   };
 
   const openEditSubcategory = (cat: Category, sub: Subcategory) => {
@@ -275,6 +281,8 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
     setSubSlugInput(sub.slug);
     setSubImageInput(sub.imageUrl || '');
     setSubBannerInput(sub.bannerUrl || '');
+    setSubSubList(Array.isArray(sub.subcategories) ? sub.subcategories : (sub as any).childCategories || []);
+    setNewSubSubName('');
   };
 
   const handleSaveSubcategory = (e: React.FormEvent) => {
@@ -302,11 +310,12 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
               slug: cleanSlug,
               imageUrl: finalImage,
               bannerUrl: finalBanner,
+              subcategories: subSubList,
             }
           : s
       );
       updateCategory(subModalTargetCat.id, { subcategories: updatedSubs });
-      showStatus(`Subcategory "${cleanName}" updated with new photo & banner! ✅`);
+      showStatus(`Subcategory "${cleanName}" and varieties updated! ✅`);
     } else {
       // Add new subcategory
       const newSub: Subcategory = {
@@ -315,6 +324,7 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
         slug: cleanSlug,
         imageUrl: finalImage,
         bannerUrl: finalBanner,
+        subcategories: subSubList,
       };
       updateCategory(subModalTargetCat.id, { subcategories: [...currentSubs, newSub] });
       showStatus(`Subcategory "${cleanName}" added successfully! ✅`);
@@ -870,6 +880,44 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                             <p className="text-[10px] text-zinc-400 font-mono truncate">
                               /{sub.slug}
                             </p>
+
+                            {/* Sub-Subcategory / Variety Styles */}
+                            <div className="pt-1.5 border-t border-zinc-100 mt-1">
+                              {sub.subcategories && sub.subcategories.length > 0 ? (
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap gap-1">
+                                    {sub.subcategories.map((child: any) => (
+                                      <span
+                                        key={child.id || child.slug}
+                                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 border border-zinc-200"
+                                      >
+                                        <span>{child.name}</span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteSubSubcategory(cat.id, sub.id, child.id || child.slug);
+                                          }}
+                                          className="text-zinc-400 hover:text-rose-600 cursor-pointer"
+                                          title="Remove style"
+                                        >
+                                          ×
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-[9px] text-zinc-400 italic block">No variety styles</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openEditSubcategory(cat, sub)}
+                                className="w-full mt-1.5 text-center text-[10px] font-semibold text-zinc-700 hover:text-black py-0.5 rounded bg-zinc-50 hover:bg-zinc-100 border border-dashed border-zinc-300 transition cursor-pointer"
+                              >
+                                + Variety
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1761,6 +1809,99 @@ export const CategoriesAndBannersManager: React.FC<CategoriesAndBannersManagerPr
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Child Categories / Variety Styles (Sub-Subcategories) */}
+                <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Child Categories / Varieties (Sub-Subcategories)</h4>
+                      <p className="text-[11px] text-slate-500">
+                        Add specific variety cuts or styles under this subcategory (e.g. Straight Fit, Anarkali, A-Line, Flared)
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {subSubList.length} varieties
+                    </span>
+                  </div>
+
+                  {/* Existing Varieties Pill Tags */}
+                  {subSubList.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {subSubList.map((child, idx) => (
+                        <span
+                          key={child.id || idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white text-slate-800 text-xs font-medium border border-slate-200 shadow-2xs"
+                        >
+                          <span>{child.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSubSubList((prev) => prev.filter((_, i) => i !== idx))}
+                            className="w-4 h-4 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 flex items-center justify-center transition cursor-pointer"
+                            title="Remove variety"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Quick Add Variety Input */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      placeholder="e.g. Anarkali, Straight Cut, Flared, A-Line"
+                      value={newSubSubName}
+                      onChange={(e) => setNewSubSubName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newSubSubName.trim()) {
+                            const name = newSubSubName.trim();
+                            setSubSubList((prev) => [
+                              ...prev,
+                              {
+                                id: `child-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                name,
+                                slug:
+                                  name
+                                    .toLowerCase()
+                                    .replace(/[^a-z0-9]+/g, '-')
+                                    .replace(/^-+|-+$/g, '') || `child-${Date.now()}`,
+                              },
+                            ]);
+                            setNewSubSubName('');
+                          }
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 rounded-xl text-xs bg-white border border-slate-200 focus:border-black outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newSubSubName.trim()) {
+                          const name = newSubSubName.trim();
+                          setSubSubList((prev) => [
+                            ...prev,
+                            {
+                              id: `child-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                              name,
+                              slug:
+                                name
+                                  .toLowerCase()
+                                  .replace(/[^a-z0-9]+/g, '-')
+                                  .replace(/^-+|-+$/g, '') || `child-${Date.now()}`,
+                            },
+                          ]);
+                          setNewSubSubName('');
+                        }
+                      }}
+                      className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-semibold rounded-xl transition cursor-pointer"
+                    >
+                      + Add Variety
+                    </button>
                   </div>
                 </div>
 

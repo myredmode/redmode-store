@@ -9,6 +9,7 @@ export const HomeView: React.FC = () => {
     setActiveView,
     setSelectedCategorySlug,
     setSelectedSubcategorySlug,
+    setSubcategoriesShowcaseCategorySlug,
     setSelectedProductId,
     formatPrice,
   } = useStore();
@@ -44,13 +45,18 @@ export const HomeView: React.FC = () => {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [categories]);
 
-  // Click on a category banner:
-  // If it has subcategories -> opens subcategories screen (Printed, Embroidered, Solids)
-  // If NO subcategories -> opens product listing screen directly!
+  // Click on a category banner from Home Page:
+  // If it has subcategories -> opens subcategories showcase banners (e.g. Kurti, Trouser)
+  // If NO subcategories -> opens product listing screen directly (e.g. Jewellery, Kurti Sets)!
   const handleCategoryClick = (cat: Category) => {
     setSelectedCategorySlug(cat.slug);
     setSelectedSubcategorySlug(null);
     setSelectedProductId(null);
+    if (cat.subcategories && cat.subcategories.length > 0) {
+      setSubcategoriesShowcaseCategorySlug(cat.slug);
+    } else {
+      setSubcategoriesShowcaseCategorySlug(null);
+    }
     setActiveView('catalogue');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };

@@ -33,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
     setSelectedCategorySlug,
     selectedSubcategorySlug,
     setSelectedSubcategorySlug,
+    setSubcategoriesShowcaseCategorySlug,
     setSelectedProductId,
     setSelectedBlogId,
     setSearchQuery,
@@ -238,6 +239,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
   const handleCategoryNav = (categorySlug?: string | null) => {
     setSelectedCategorySlug(categorySlug || null);
     setSelectedSubcategorySlug(null);
+    setSubcategoriesShowcaseCategorySlug(null);
     setSelectedProductId(null);
     setActiveView('catalogue');
     setIsKurtiDropdownOpen(false);
@@ -249,6 +251,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLogin, onOpenSearch }) => 
   const handleShopNavigation = (categorySlug?: string, subcategorySlug?: string) => {
     setSelectedCategorySlug(categorySlug || null);
     setSelectedSubcategorySlug(subcategorySlug || null);
+    setSubcategoriesShowcaseCategorySlug(null);
     setSelectedProductId(null);
     setActiveView('catalogue');
     setIsShopDropdownOpen(false);

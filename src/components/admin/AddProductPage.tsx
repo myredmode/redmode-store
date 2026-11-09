@@ -168,6 +168,9 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
   const [subcategory, setSubcategory] = useState(
     initialProduct?.subcategory || 'Printed Kurti'
   );
+  const [subSubcategory, setSubSubcategory] = useState(
+    initialProduct?.subSubcategory || ''
+  );
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newSubcategoryName, setNewSubcategoryName] = useState('');
@@ -891,6 +894,7 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
       mrp: numericMrp,
       category: category.trim(),
       subcategory: subcategory.trim(),
+      subSubcategory: subSubcategory.trim(),
       gender: gender,
       color: colors[0]?.name || 'Standard',
       colorOptions: colorOptionsData,
@@ -941,6 +945,18 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
   const activeCategoryObj = categories.find(
     (c) => c.name.toLowerCase() === category.toLowerCase() || c.slug === category.toLowerCase()
   );
+
+  const activeSubcategoryObj = useMemo(() => {
+    if (!activeCategoryObj || !Array.isArray(activeCategoryObj.subcategories)) return null;
+    return activeCategoryObj.subcategories.find((s) => {
+      const sName = typeof s === 'string' ? s : s.name;
+      const sSlug = typeof s === 'string' ? s : s.slug;
+      return (
+        sName?.toLowerCase() === subcategory?.toLowerCase() ||
+        sSlug?.toLowerCase() === subcategory?.toLowerCase()
+      );
+    });
+  }, [activeCategoryObj, subcategory]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-24">
@@ -2069,6 +2085,41 @@ export const AddProductPage: React.FC<AddProductPageProps> = ({
                   <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
+
+              {/* Sub-Subcategory (Variety / Child Style) Dropdown */}
+              {activeSubcategoryObj &&
+                typeof activeSubcategoryObj !== 'string' &&
+                activeSubcategoryObj.subcategories &&
+                activeSubcategoryObj.subcategories.length > 0 && (
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700">Variety Style (Sub-Subcategory)</label>
+                      <span className="text-[10px] text-slate-400">Optional</span>
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={subSubcategory}
+                        onChange={(e) => {
+                          setSubSubcategory(e.target.value);
+                          setIsDirty(true);
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-900 bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-900 outline-none appearance-none cursor-pointer pr-10"
+                      >
+                        <option value="">All / Standard (None)</option>
+                        {activeSubcategoryObj.subcategories.map((child: any) => {
+                          const childId = typeof child === 'string' ? child : child.id || child.slug || child.name;
+                          const childName = typeof child === 'string' ? child : child.name;
+                          return (
+                            <option key={childId} value={childName}>
+                              {childName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
 
               {/* Add Category Button (Soft Green pill matching reference screenshot) */}
               <button
